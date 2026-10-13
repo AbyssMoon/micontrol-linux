@@ -19,6 +19,7 @@ ApplicationWindow {
 
     Controller {
         id: ctl
+        onShowRequested: win.showWindow()
     }
 
     // --- Трей ---
@@ -166,6 +167,7 @@ ApplicationWindow {
         // Без трея скрытое окно было бы не открыть.
         if (!win.visible && !tray.available)
             win.showWindow();
+        ctl.listenInstances();
     }
 
     Timer {

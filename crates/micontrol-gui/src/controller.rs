@@ -4,6 +4,7 @@ use std::pin::Pin;
 use std::fs;
 use std::process::Command;
 
+use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use micontrol_core::ipc::{self, IpcError, Request, Status};
 use micontrol_core::protocol::{ChargeLimit, PerfMode};
@@ -76,7 +77,17 @@ pub mod qobject {
 
         #[qinvokable]
         fn request_pl1_sync(self: Pin<&mut Controller>, enabled: bool);
+
+        /// Начать принимать запросы от повторных запусков интерфейса.
+        #[qinvokable]
+        fn listen_instances(self: Pin<&mut Controller>);
+
+        /// Повторный запуск попросил показать окно.
+        #[qsignal]
+        fn show_requested(self: Pin<&mut Controller>);
     }
+
+    impl cxx_qt::Threading for Controller {}
 }
 
 pub struct ControllerRust {
@@ -358,5 +369,12 @@ impl qobject::Controller {
 
     pub fn request_pl1_sync(self: Pin<&mut Self>, enabled: bool) {
         self.apply_action(ipc::request(&Request::SetPl1Sync { enabled }));
+    }
+
+    pub fn listen_instances(self: Pin<&mut Self>) {
+        let thread = self.qt_thread();
+        crate::single_instance::listen(move || {
+            let _ = thread.queue(|ctl| ctl.show_requested());
+        });
     }
 }
