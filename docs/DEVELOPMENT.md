@@ -174,15 +174,19 @@ iasl -d DSDT SSDT*      # затем grep -l WMAA *.dsl
 
 ## Релиз
 
-1. Обновите версию в `Cargo.toml` (`workspace.package.version`).
-2. `./scripts/make-portable.sh` → `dist/micontrol-portable.tar.xz`.
-3. `./scripts/make-rpm.sh --no-build` → `dist/micontrol-X.Y.Z-1.fc44.x86_64.rpm` (из той же
-   переносной сборки; спек и файлы пакета — в `packaging/rpm/`). Если меняется
-   `third_party/acpi_call/VERSION`, обновление пакета оставит старую версию в DKMS —
-   её надо удалить в `%post`.
-4. Проверьте сборку на ноутбуке: `./run.sh probe`, `./run.sh`, установку RPM.
-5. Тег `vX.Y.Z`, `git push --tags`, на GitHub — Releases → Draft a new release, архив и RPM —
-   в поле «Attach binaries» (поле описания принимает не больше 25 МБ).
+Релиз собирает CI (`.github/workflows/release.yml`) по тегу `v*`:
+
+1. Обновите версию в `Cargo.toml` (`workspace.package.version`), закоммитьте.
+2. Проверьте сборку на ноутбуке: `./scripts/make-rpm.sh`, установка RPM, `./run.sh probe`.
+3. `git tag vX.Y.Z && git push origin main vX.Y.Z`.
+
+Дальше CI сам: переносная сборка на Ubuntu 24.04 (glibc 2.39 — запускается и на
+дистрибутивах постарше Fedora), из неё RPM в контейнере `fedora:44`, релиз на GitHub с
+`micontrol-portable.tar.xz` и `micontrol-X.Y.Z-1.fc44.x86_64.rpm` — через `GITHUB_TOKEN`,
+отдельный токен не нужен. Тег, не совпадающий с версией в `Cargo.toml`, сборку останавливает.
+
+Если меняется `third_party/acpi_call/VERSION`, обновление пакета оставит старую версию модуля
+в DKMS — её надо удалять в `%post` спека (`packaging/rpm/micontrol.spec`).
 
 ## Известные проблемы и долги
 

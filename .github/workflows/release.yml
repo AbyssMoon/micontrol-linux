@@ -1,0 +1,101 @@
+name: Release
+
+# git tag v0.1.0 && git push origin v0.1.0 → релиз с архивом и RPM.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  portable:
+    # Старая glibc — архив запустится на большем числе дистрибутивов.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Версия тега совпадает с Cargo.toml
+        run: |
+          v="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "тег $GITHUB_REF_NAME, а в Cargo.toml $v" >&2; exit 1; }
+
+      - name: Системные зависимости
+        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libxkbcommon-dev
+
+      - name: Кеш тулчейна
+        uses: actions/cache@v4
+        with:
+          path: |
+            .toolchain/qt
+            .toolchain/rustup
+            .toolchain/cargo
+          key: toolchain-${{ hashFiles('scripts/setup-toolchain.sh', 'Cargo.lock') }}
+
+      - name: Тулчейн (Rust, Qt 6.8.3)
+        run: ./scripts/setup-toolchain.sh
+
+      - name: Переносная сборка
+        run: ./scripts/make-portable.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portable
+          path: dist/micontrol-portable.tar.xz
+
+  rpm:
+    needs: portable
+    runs-on: ubuntu-24.04
+    container: fedora:44
+    steps:
+      - name: Инструменты сборки RPM
+        run: dnf install -y --setopt=install_weak_deps=False git rpm-build systemd-rpm-macros xz tar
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: portable
+          path: dist
+
+      - name: RPM
+        run: |
+          tar -C dist -xf dist/micontrol-portable.tar.xz
+          ./scripts/make-rpm.sh --no-build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: dist/micontrol-*.rpm
+
+  release:
+    needs: [portable, rpm]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Релиз на GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rpm="$(cd dist && ls micontrol-*.rpm)"
+          cat > notes.md <<EOF
+          **Fedora (RPM)** — демон при старте системы, трей при входе, \`acpi_call\` через DKMS:
+
+          \`\`\`sh
+          sudo dnf install ./$rpm
+          \`\`\`
+
+          **Любой дистрибутив (переносная сборка)** — ничего не устанавливает:
+
+          \`\`\`sh
+          tar xf micontrol-portable.tar.xz && cd micontrol-portable
+          ./build-acpi_call.sh && ./run.sh
+          \`\`\`
+
+          Подробности — в [README](https://github.com/${{ github.repository }}#readme).
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "${{ github.repository }}" --title "MI Control $GITHUB_REF_NAME" --notes-file notes.md
