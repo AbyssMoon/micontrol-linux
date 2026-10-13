@@ -178,15 +178,21 @@ iasl -d DSDT SSDT*      # затем grep -l WMAA *.dsl
 
 1. Обновите версию в `Cargo.toml` (`workspace.package.version`), закоммитьте.
 2. Проверьте сборку на ноутбуке: `./scripts/make-rpm.sh`, установка RPM, `./run.sh probe`.
+   Обновите `%changelog` в `packaging/rpm/micontrol.spec`.
 3. `git tag vX.Y.Z && git push origin main vX.Y.Z`.
 
-Дальше CI сам: переносная сборка на Ubuntu 24.04 (glibc 2.39 — запускается и на
-дистрибутивах постарше Fedora), из неё RPM в контейнере `fedora:44`, релиз на GitHub с
-`micontrol-portable.tar.xz` и `micontrol-X.Y.Z-1.fc44.x86_64.rpm` — через `GITHUB_TOKEN`,
-отдельный токен не нужен. Тег, не совпадающий с версией в `Cargo.toml`, сборку останавливает.
+Дальше CI сам: переносная сборка и `.deb` на Ubuntu 24.04 (glibc 2.39 — запускается и на
+дистрибутивах постарше Fedora), из той же сборки RPM в контейнере `fedora:44`, релиз на GitHub
+с `micontrol-portable.tar.xz`, `micontrol-X.Y.Z-1.fc44.x86_64.rpm` и
+`micontrol_X.Y.Z_amd64.deb` — через `GITHUB_TOKEN`, отдельный токен не нужен.
+
+Файлы пакетов: общие (юнит, `dkms.conf`, ярлыки, обёртка GUI) — `packaging/common/`, спек —
+`packaging/rpm/`, `control` и скрипты установки — `packaging/deb/`. Список `Depends` в `.deb`
+ведётся вручную: при новых зависимостях Qt проверьте `.deb` в контейнере `ubuntu:24.04`
+(`apt install ./dist/micontrol_*.deb`, затем `ldd` на `/opt/micontrol/bin/micontrol-gui`). Тег, не совпадающий с версией в `Cargo.toml`, сборку останавливает.
 
 Если меняется `third_party/acpi_call/VERSION`, обновление пакета оставит старую версию модуля
-в DKMS — её надо удалять в `%post` спека (`packaging/rpm/micontrol.spec`).
+в DKMS — её надо удалять в `%post` спека и в `packaging/deb/postinst`.
 
 ## Известные проблемы и долги
 

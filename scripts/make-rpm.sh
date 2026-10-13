@@ -21,7 +21,7 @@ rpmbuild -bb "$ROOT/packaging/rpm/micontrol.spec" \
     --define "mc_version $VERSION" \
     --define "acpi_ver $ACPI_VER" \
     --define "bundle $BUNDLE" \
-    --define "pkgsrc $ROOT/packaging/rpm" \
+    --define "pkgsrc $ROOT/packaging/common" \
     --define "acpisrc $ROOT/third_party/acpi_call" \
     --define "icon $ROOT/crates/micontrol-gui/qml/img/tray_auto.svg" \
     --define "licfile $ROOT/LICENSE"

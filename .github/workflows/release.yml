@@ -35,10 +35,18 @@ jobs:
       - name: Переносная сборка
         run: ./scripts/make-portable.sh
 
+      - name: Пакет .deb
+        run: ./scripts/make-deb.sh --no-build
+
       - uses: actions/upload-artifact@v4
         with:
           name: portable
           path: dist/micontrol-portable.tar.xz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: dist/micontrol_*_amd64.deb
 
   rpm:
     needs: portable
@@ -81,6 +89,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           rpm="$(cd dist && ls micontrol-*.rpm)"
+          deb="$(cd dist && ls micontrol_*_amd64.deb)"
           cat > notes.md <<EOF
           **Fedora (RPM)** — демон при старте системы, трей при входе, \`acpi_call\` через DKMS:
 
@@ -88,14 +97,20 @@ jobs:
           sudo dnf install ./$rpm
           \`\`\`
 
-          **Любой дистрибутив (переносная сборка)** — ничего не устанавливает:
+          **Ubuntu 24.04+, Debian 13+, Linux Mint 22+ (deb)** — то же самое:
+
+          \`\`\`sh
+          sudo apt install ./$deb
+          \`\`\`
+
+          **Другие дистрибутивы (переносная сборка)** — ничего не устанавливает:
 
           \`\`\`sh
           tar xf micontrol-portable.tar.xz && cd micontrol-portable
           ./build-acpi_call.sh && ./run.sh
           \`\`\`
 
-          Подробности — в [README](https://github.com/${{ github.repository }}#readme).
+          С включённым Secure Boot модуль нужно подписать — см. [README](https://github.com/${{ github.repository }}#secure-boot).
           EOF
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "${{ github.repository }}" --title "MI Control $GITHUB_REF_NAME" --notes-file notes.md

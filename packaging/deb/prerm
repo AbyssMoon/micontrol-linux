@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+ACPI_VER=@ACPI_VER@
+
+if [ "$1" = remove ]; then
+    if [ -d /run/systemd/system ]; then
+        systemctl disable --now micontrold.service || true
+    fi
+    modprobe -r acpi_call 2>/dev/null || true
+    dkms remove -m acpi_call -v "$ACPI_VER" --all || true
+fi

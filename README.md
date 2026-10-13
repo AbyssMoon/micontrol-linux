@@ -41,9 +41,27 @@ battery charge limit, microphone LED. Rust + Qt 6.*
   в MOK. С выключенным Secure Boot всё работает как есть.
 - Демон `micontrold` работает от root; GUI и CLI — от обычного пользователя через Unix-сокет.
 
-## Быстрый старт (переносная сборка)
+## Установка
 
-Ничего не устанавливает в систему:
+Готовые файлы — на странице [Releases](https://github.com/AbyssMoon/micontrol-linux/releases/latest).
+Пакеты ставят демон, который запускается при старте системы, значок в трее при входе в сеанс
+и модуль `acpi_call`, который DKMS пересобирает под каждое новое ядро.
+
+**Fedora 44+** (`micontrol-<версия>-1.fc44.x86_64.rpm`):
+
+```sh
+sudo dnf install ./micontrol-*.rpm      # подтянет dkms и kernel-devel
+sudo dnf remove micontrol               # удалить (настройки в /var/lib/micontrol остаются)
+```
+
+**Ubuntu 24.04+, Debian 13+, Linux Mint 22+** (`micontrol_<версия>_amd64.deb`):
+
+```sh
+sudo apt install ./micontrol_*_amd64.deb   # подтянет dkms и заголовки ядра
+sudo apt remove micontrol                  # удалить; apt purge — вместе с настройками
+```
+
+**Другие дистрибутивы** — переносная сборка, в систему ничего не ставит:
 
 ```sh
 tar xf micontrol-portable.tar.xz && cd micontrol-portable
@@ -53,21 +71,30 @@ tar xf micontrol-portable.tar.xz && cd micontrol-portable
 ./run.sh --mock        # интерфейс без железа и без root
 ```
 
-## Установка в систему (Fedora, RPM)
+После установки пакета: окно — «MI Control» в меню приложений, CLI — `micontrol status`,
+лог демона — `journalctl -u micontrold`.
 
-Демон запускается при старте системы, значок в трее — при входе в сеанс, модуль `acpi_call`
-пересобирается DKMS под каждое новое ядро.
+### Secure Boot
+
+С включённым Secure Boot модуль `acpi_call` загрузится, только если подписан ключом из MOK.
+DKMS подписывает его сам, но ключ нужно один раз внести в прошивку:
 
 ```sh
-./scripts/make-rpm.sh                          # → dist/micontrol-<версия>-1.fc44.x86_64.rpm
-sudo dnf install dist/micontrol-*.rpm          # подтянет dkms и kernel-devel
-sudo dnf remove micontrol                      # удалит всё, кроме /var/lib/micontrol
+# Ubuntu / Debian (при установке DKMS может сам предложить это и спросить пароль)
+sudo mokutil --import /var/lib/shim-signed/mok/MOK.der
+# Fedora
+sudo mokutil --import /var/lib/dkms/mok.pub
 ```
 
-Что ставит пакет: `/opt/micontrol` (программа со встроенным Qt), `micontrold.service`,
-`/usr/src/acpi_call-*` для DKMS, `/usr/lib/modules-load.d/acpi_call.conf`, ярлык в меню и
-автозапуск `/etc/xdg/autostart/micontrol.desktop` (`micontrol-gui --tray`), команды
-`micontrol` и `micontrol-gui`. Лог демона: `journalctl -u micontrold`.
+Задайте одноразовый пароль, перезагрузитесь, на синем экране MOK Manager выберите
+«Enroll MOK» и введите его. Проверка: `lsmod | grep acpi_call`.
+
+### Что ставят пакеты
+
+`/opt/micontrol` (программа со встроенным Qt 6), `micontrold.service`, `/usr/src/acpi_call-*`
+для DKMS, `/usr/lib/modules-load.d/acpi_call.conf`, ярлык в меню, автозапуск
+`/etc/xdg/autostart/micontrol.desktop` (`micontrol-gui --tray`), команды `micontrol` и
+`micontrol-gui`. Повторный запуск `micontrol-gui` открывает окно уже запущенного экземпляра.
 
 ## Сборка из исходников
 
@@ -81,7 +108,9 @@ cargo build --workspace
 cargo test --workspace
 
 ./scripts/build-acpi_call.sh      # → build/acpi_call/acpi_call.ko
-./scripts/make-portable.sh        # → dist/micontrol-portable
+./scripts/make-portable.sh        # → dist/micontrol-portable и .tar.xz
+./scripts/make-rpm.sh             # → dist/micontrol-*.rpm (нужен rpmbuild)
+./scripts/make-deb.sh             # → dist/micontrol_*_amd64.deb (нужен dpkg-deb)
 ```
 
 Разработка без ноутбука Xiaomi:

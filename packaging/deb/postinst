@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+ACPI_VER=@ACPI_VER@
+
+if [ "$1" = configure ]; then
+    # Модуль — под все ядра, для которых есть заголовки; новые ядра DKMS подхватит сам.
+    dkms status -m acpi_call -v "$ACPI_VER" | grep -q . || dkms add -m acpi_call -v "$ACPI_VER" || true
+    for k in /lib/modules/*; do
+        [ -e "$k/build" ] || continue
+        dkms install -m acpi_call -v "$ACPI_VER" -k "$(basename "$k")" || \
+            echo "micontrol: не удалось собрать acpi_call для $(basename "$k")" >&2
+    done
+    modprobe acpi_call 2>/dev/null || true
+
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload || true
+        if [ -z "$2" ]; then
+            systemctl enable --now micontrold.service || true
+        else
+            systemctl try-restart micontrold.service || true
+        fi
+    fi
+fi

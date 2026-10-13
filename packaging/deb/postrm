@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload || true
+fi
+# Настройки демона удаляются только при полном удалении (apt purge).
+if [ "$1" = purge ]; then
+    rm -rf /var/lib/micontrol
+fi
