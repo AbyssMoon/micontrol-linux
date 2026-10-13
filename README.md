@@ -124,6 +124,14 @@ sudo ./scripts/probe-hw.sh        # ТОЛЬКО ЧТЕНИЕ, ничего не
 - `crates/micontrol-cli` — `micontrol`: клиент демона, `probe` / `raw` / `dbg` для отладки.
 - `crates/micontrol-gui` — интерфейс на QML (cxx-qt) со значком в трее.
 
+## Документация
+
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — архитектура, IPC, отладка на железе, как добавить
+  функцию или модель, релиз, известные проблемы.
+- [docs/FIRMWARE.md](docs/FIRMWARE.md) — справочник по `WMAA`, событиям WMI, DTT и лимитам
+  мощности, открытые вопросы.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — как проверить свою модель и прислать данные.
+
 ## Лицензия
 
 GNU GPL v3 или новее (как и оригинальный MIControl). `third_party/acpi_call` — GPL v3,

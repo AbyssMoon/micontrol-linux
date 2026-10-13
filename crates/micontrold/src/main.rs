@@ -338,7 +338,13 @@ fn main() {
             daemon.save();
         }
     }
-    if daemon.saved.pl1_sync {
+    // С синхронизацией — подтянуть лимит режима. Без неё — вернуть лимит BIOS,
+    // если его оставил поднятым прошлый запуск (например, демон был убит).
+    let raised = matches!(
+        (power::msr_pl1(), daemon.saved.bios_pl1_uw),
+        (Some(msr), Some(bios)) if msr > bios
+    );
+    if daemon.saved.pl1_sync || raised {
         daemon.sync_pl1();
     }
 
