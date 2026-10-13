@@ -93,5 +93,8 @@ fi
 %dir %{_sharedstatedir}/micontrol
 
 %changelog
+* Tue Oct 13 2026 AbyssMoon <7919805+AbyssMoon@users.noreply.github.com> - 0.1.1-1
+- Пакет RPM: демон (systemd), трей при входе, acpi_call через DKMS
+- Интерфейс: --tray, один экземпляр на пользователя
 * Tue Oct 13 2026 AbyssMoon <7919805+AbyssMoon@users.noreply.github.com> - 0.1.0-1
-- Первый пакет: демон (systemd), трей при входе, acpi_call через DKMS
+- Первый выпуск (только переносная сборка)
