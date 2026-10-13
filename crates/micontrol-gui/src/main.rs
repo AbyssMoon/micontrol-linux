@@ -5,6 +5,11 @@ mod controller;
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QUrl};
 
 fn main() {
+    // Интерфейс рассчитан на Fusion; остальные стили в переносную сборку не входят.
+    if std::env::var_os("QT_QUICK_CONTROLS_STYLE").is_none() {
+        std::env::set_var("QT_QUICK_CONTROLS_STYLE", "Fusion");
+    }
+
     let mut app = QGuiApplication::new();
     let mut engine = QQmlApplicationEngine::new();
 

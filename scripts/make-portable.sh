@@ -20,6 +20,8 @@ cp "$ROOT"/target/release/{micontrold,micontrol,micontrol-gui} "$OUT/bin/"
 # QML-модули, которые использует интерфейс.
 cp -a "$QT/qml/QtQuick" "$QT/qml/QtQml" "$OUT/qml/"
 rm -rf "$OUT/qml/QtQuick/"{Particles,Dialogs,LocalStorage,Effects,VectorImage,Shapes,tooling}
+# Нужен только стиль Fusion (он опирается на Basic и impl).
+rm -rf "$OUT/qml/QtQuick/Controls/"{Imagine,Material,Universal,FluentWinUI3,designer}
 # Значок в трее и его меню (Qt.labs.platform).
 mkdir -p "$OUT/qml/Qt/labs"
 cp -a "$QT/qml/Qt/labs/platform" "$OUT/qml/Qt/labs/"
@@ -27,9 +29,11 @@ cp -a "$QT/qml/Qt/labs/platform" "$OUT/qml/Qt/labs/"
 # Плагины: X11 и Wayland, картинки, методы ввода.
 for d in platforms wayland-decoration-client wayland-graphics-integration-client \
          wayland-shell-integration xcbglintegrations imageformats iconengines \
-         platforminputcontexts egldeviceintegrations; do
+         platforminputcontexts; do
     [ -d "$QT/plugins/$d" ] && cp -a "$QT/plugins/$d" "$OUT/plugins/"
 done
+# Платформы без графической оболочки (eglfs, linuxfb, vnc) не нужны.
+rm -f "$OUT"/plugins/platforms/lib{qeglfs,qlinuxfb,qvnc,qminimalegl,qvkkhrdisplay}.so
 mkdir -p "$OUT/plugins/platformthemes"
 cp "$QT"/plugins/platformthemes/libqxdgdesktopportal.so "$OUT/plugins/platformthemes/" 2>/dev/null || true
 
@@ -66,3 +70,8 @@ echo
 echo "Готово: $OUT ($(du -sh "$OUT" | cut -f1))"
 echo "Максимальная требуемая версия glibc:"
 objdump -T "$OUT"/bin/* "$OUT"/lib/* 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+
+# Архив для релиза.
+rm -f "$ROOT"/dist/micontrol-portable.tar.{gz,xz}
+tar -C "$ROOT/dist" -cf - micontrol-portable | xz -9e -T0 > "$ROOT/dist/micontrol-portable.tar.xz"
+echo "Архив: $ROOT/dist/micontrol-portable.tar.xz ($(du -h "$ROOT/dist/micontrol-portable.tar.xz" | cut -f1))"

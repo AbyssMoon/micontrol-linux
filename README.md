@@ -46,7 +46,7 @@ battery charge limit, microphone LED. Rust + Qt 6.*
 Ничего не устанавливает в систему:
 
 ```sh
-tar xf micontrol-portable.tar.gz && cd micontrol-portable
+tar xf micontrol-portable.tar.xz && cd micontrol-portable
 ./build-acpi_call.sh   # один раз: собрать модуль под своё ядро
 ./run.sh probe         # только чтение: проверить, что прошивка отвечает
 ./run.sh               # демон (sudo) + окно; выход — через меню в трее

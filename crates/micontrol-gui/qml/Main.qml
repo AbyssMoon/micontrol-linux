@@ -693,7 +693,7 @@ ApplicationWindow {
                             }
                             Label {
                                 Layout.preferredWidth: 130
-                                text: batPage.shownPct >= 100 ? "100% · без лимита" : batPage.shownPct + "%"
+                                text: batPage.shownPct >= 100 ? "без лимита" : batPage.shownPct + "%"
                                 font.pixelSize: 15
                                 font.bold: true
                             }
