@@ -1,0 +1,8 @@
+#!/bin/sh
+# Интерфейс со встроенным Qt из /opt/micontrol.
+D=/opt/micontrol
+export LD_LIBRARY_PATH="$D/lib"
+export QT_PLUGIN_PATH="$D/plugins"
+export QML_IMPORT_PATH="$D/qml"
+export QML2_IMPORT_PATH="$D/qml"
+exec "$D/bin/micontrol-gui" "$@"

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=MI Control
+Comment=MI Control tray icon
+Exec=micontrol-gui --tray
+Icon=micontrol
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

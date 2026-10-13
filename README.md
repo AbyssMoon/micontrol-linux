@@ -53,6 +53,22 @@ tar xf micontrol-portable.tar.xz && cd micontrol-portable
 ./run.sh --mock        # интерфейс без железа и без root
 ```
 
+## Установка в систему (Fedora, RPM)
+
+Демон запускается при старте системы, значок в трее — при входе в сеанс, модуль `acpi_call`
+пересобирается DKMS под каждое новое ядро.
+
+```sh
+./scripts/make-rpm.sh                          # → dist/micontrol-<версия>-1.fc44.x86_64.rpm
+sudo dnf install dist/micontrol-*.rpm          # подтянет dkms и kernel-devel
+sudo dnf remove micontrol                      # удалит всё, кроме /var/lib/micontrol
+```
+
+Что ставит пакет: `/opt/micontrol` (программа со встроенным Qt), `micontrold.service`,
+`/usr/src/acpi_call-*` для DKMS, `/usr/lib/modules-load.d/acpi_call.conf`, ярлык в меню и
+автозапуск `/etc/xdg/autostart/micontrol.desktop` (`micontrol-gui --tray`), команды
+`micontrol` и `micontrol-gui`. Лог демона: `journalctl -u micontrold`.
+
 ## Сборка из исходников
 
 Тулчейн ставится в `.toolchain/` внутри проекта (Rust через rustup, Qt 6.8.3 через aqtinstall).

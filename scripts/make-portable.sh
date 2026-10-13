@@ -1,7 +1,12 @@
 #!/bin/bash
 # Собирает переносную папку dist/micontrol-portable: скопировал на ноутбук,
 # запустил ./run.sh — в системе ничего не устанавливается.
+#
+#   --no-archive   не упаковывать в tar.xz (так делает scripts/make-rpm.sh)
 set -euo pipefail
+
+ARCHIVE=1
+[ "${1:-}" = --no-archive ] && ARCHIVE=0
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=../env.sh
@@ -70,6 +75,8 @@ echo
 echo "Готово: $OUT ($(du -sh "$OUT" | cut -f1))"
 echo "Максимальная требуемая версия glibc:"
 objdump -T "$OUT"/bin/* "$OUT"/lib/* 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+
+[ "$ARCHIVE" = 1 ] || exit 0
 
 # Архив для релиза.
 rm -f "$ROOT"/dist/micontrol-portable.tar.{gz,xz}

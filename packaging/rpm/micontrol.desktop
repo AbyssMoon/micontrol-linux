@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MI Control
+Comment=Performance modes, battery charge limit and microphone LED
+Comment[ru]=Режимы производительности, лимит заряда, индикатор микрофона
+Exec=micontrol-gui
+Icon=micontrol
+Terminal=false
+Categories=System;Settings;HardwareSettings;
+Keywords=xiaomi;redmi;battery;fan;performance;

@@ -1,0 +1,15 @@
+[Unit]
+Description=MI Control daemon (Xiaomi / REDMI Book firmware)
+After=systemd-modules-load.service
+
+[Service]
+# Модуль загружается и через modules-load.d; здесь — на случай, если DKMS
+# собрал его уже после старта (первая установка, новое ядро).
+ExecStartPre=-/usr/sbin/modprobe acpi_call
+ExecStart=/opt/micontrol/bin/micontrold
+StateDirectory=micontrol
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

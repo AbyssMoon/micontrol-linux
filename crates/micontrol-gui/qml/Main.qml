@@ -13,7 +13,8 @@ ApplicationWindow {
     height: 640
     minimumWidth: 560
     minimumHeight: 420
-    visible: true
+    // --tray: старт свёрнутым в трей (автозапуск при входе).
+    visible: Qt.application.arguments.indexOf("--tray") < 0
     title: "MI Control"
 
     Controller {
@@ -162,6 +163,9 @@ ApplicationWindow {
         const page = win.argValue("--page");
         if (page !== "")
             nav.currentIndex = parseInt(page);
+        // Без трея скрытое окно было бы не открыть.
+        if (!win.visible && !tray.available)
+            win.showWindow();
     }
 
     Timer {

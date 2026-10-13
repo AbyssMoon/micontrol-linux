@@ -176,8 +176,12 @@ iasl -d DSDT SSDT*      # затем grep -l WMAA *.dsl
 
 1. Обновите версию в `Cargo.toml` (`workspace.package.version`).
 2. `./scripts/make-portable.sh` → `dist/micontrol-portable.tar.xz`.
-3. Проверьте сборку на ноутбуке: `./run.sh probe`, `./run.sh`.
-4. Тег `vX.Y.Z`, `git push --tags`, на GitHub — Releases → Draft a new release, архив —
+3. `./scripts/make-rpm.sh --no-build` → `dist/micontrol-X.Y.Z-1.fc44.x86_64.rpm` (из той же
+   переносной сборки; спек и файлы пакета — в `packaging/rpm/`). Если меняется
+   `third_party/acpi_call/VERSION`, обновление пакета оставит старую версию в DKMS —
+   её надо удалить в `%post`.
+4. Проверьте сборку на ноутбуке: `./run.sh probe`, `./run.sh`, установку RPM.
+5. Тег `vX.Y.Z`, `git push --tags`, на GitHub — Releases → Draft a new release, архив и RPM —
    в поле «Attach binaries» (поле описания принимает не больше 25 МБ).
 
 ## Известные проблемы и долги
