@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Системные зависимости
+        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libxkbcommon-dev
+
+      - name: Qt 6.8.3
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.8.3"
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Сборка
+        run: cargo build --workspace --locked
+
+      - name: Тесты
+        run: cargo test --workspace --locked
+
+      - name: Модуль acpi_call собирается
+        run: |
+          sudo apt-get install -y linux-headers-$(uname -r)
+          make -C /lib/modules/$(uname -r)/build M=$PWD/third_party/acpi_call modules

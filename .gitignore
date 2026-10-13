@@ -1,0 +1,8 @@
+/target
+/.toolchain
+/reference
+/dist
+aqtinstall.log
+.qmlls.ini
+/build
+*.log

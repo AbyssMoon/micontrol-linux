@@ -1,0 +1,12 @@
+[package]
+name = "micontrol-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "micontrol"
+path = "src/main.rs"
+
+[dependencies]
+micontrol-core.workspace = true

@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = ["crates/micontrol-core", "crates/micontrold", "crates/micontrol-cli", "crates/micontrol-gui"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[workspace.dependencies]
+micontrol-core = { path = "crates/micontrol-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
+strip = true
