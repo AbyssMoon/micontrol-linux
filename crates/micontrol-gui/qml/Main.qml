@@ -904,16 +904,18 @@ ApplicationWindow {
 
                     // --- О программе ---
                     ScrollView {
+                        id: aboutView
                         clip: true
+                        contentWidth: availableWidth
 
                         Label {
-                            width: parent.width
+                            width: aboutView.availableWidth
                             wrapMode: Text.Wrap
                             textFormat: Text.MarkdownText
                             onLinkActivated: link => Qt.openUrlExternally(link)
                             text: "## MI Control для Linux\n\n"
                                 + "Управление функциями ноутбуков Xiaomi и RedmiBook: режимы производительности, "
-                                + "защита батареи, микрофон.\n\n"
+                                + "защита батареи, микрофон, тачпад.\n\n"
                                 + "Порт [MI Control Utility](https://github.com/loginsinex/micontrol) (© loginsin, 2025) "
                                 + "на Rust и Qt. Значения лимитов заряда сверены с ACPI-таблицами RedmiBook 2025 "
                                 + "(метод WMAA) и [Arch Wiki](https://wiki.archlinux.org/title/Xiaomi_RedmiBook_Pro_16_2025).\n\n"
