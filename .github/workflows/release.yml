@@ -79,6 +79,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -90,7 +92,11 @@ jobs:
         run: |
           rpm="$(cd dist && ls micontrol-*.rpm)"
           deb="$(cd dist && ls micontrol_*_amd64.deb)"
-          cat > notes.md <<EOF
+          # Раздел «## <версия>» из CHANGELOG.md — что нового для пользователя.
+          awk -v v="## ${GITHUB_REF_NAME#v}" '$0 == v {on = 1; next} /^## / {on = 0} on' \
+              CHANGELOG.md > notes.md
+          [ -s notes.md ] && printf '\n---\n\n' >> notes.md
+          cat >> notes.md <<EOF
           **Fedora (RPM)** — демон при старте системы, трей при входе, \`acpi_call\` через DKMS:
 
           \`\`\`sh
