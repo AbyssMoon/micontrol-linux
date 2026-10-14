@@ -63,6 +63,9 @@ pub struct Status {
     /// `None` — тачпад не найден.
     #[serde(default)]
     pub touchpad_enabled: Option<bool>,
+    /// Сколько раз нажата спецкнопка с запуска демона.
+    #[serde(default)]
+    pub button_presses: u64,
     pub errors: Vec<String>,
     pub sysinfo: SysInfo,
 }

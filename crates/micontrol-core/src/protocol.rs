@@ -53,6 +53,8 @@ pub const BATTERY_HEALTH_SUBCMD: u8 = 0x01;
 /// WMI-событие Fn+K на RedmiBook 2025 (`_Q28`). Режим прошивка не меняет —
 /// переключать по кругу должен драйвер (на Windows — программа Xiaomi).
 pub const EVENT_FN_K: u8 = 0x28;
+/// Спецкнопка в правом верхнем углу: нажатие (`_Q15`); отпускание — 0x26 (`_Q16`).
+pub const EVENT_SPECIAL_BUTTON: u8 = 0x25;
 
 pub fn build_request(op: Op, cmd: u8, arg: u8, arg2: u8) -> [u8; BUF_LEN] {
     let mut buf = [0u8; BUF_LEN];

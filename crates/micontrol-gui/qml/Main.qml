@@ -219,6 +219,7 @@ ApplicationWindow {
         { title: "Батарея" },
         { title: "Микрофон" },
         { title: "Тачпад" },
+        { title: "Спецкнопка" },
         { title: "Система" },
         { title: "О программе" }
     ]
@@ -879,6 +880,78 @@ ApplicationWindow {
                                   + "сочетание нужно назначить самому. В KDE: Параметры системы → "
                                   + "Комбинации клавиш → Добавить → Команда, команда "
                                   + "<tt>micontrol touchpad toggle</tt>."
+                        }
+                        Item { Layout.fillHeight: true }
+                    }
+
+                    // --- Спецкнопка ---
+                    ColumnLayout {
+                        spacing: 12
+
+                        Label {
+                            text: "Спецкнопка"
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+
+                            Image {
+                                source: "img/special_button.svg"
+                                sourceSize: Qt.size(56, 56)
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                opacity: 0.7
+                                text: "Кнопка в правом верхнем углу клавиатуры, над Home. Назначьте ей любую "
+                                      + "команду — она запустится при нажатии, пока MI Control работает (значок в трее)."
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            TextField {
+                                id: buttonCmd
+                                Layout.fillWidth: true
+                                placeholderText: "команда, например konsole"
+                                text: ctl.buttonCommand
+                                selectByMouse: true
+                                onAccepted: ctl.storeButtonCommand(text)
+                            }
+                            Button {
+                                text: "Сохранить"
+                                enabled: buttonCmd.text.trim() !== ctl.buttonCommand
+                                onClicked: ctl.storeButtonCommand(buttonCmd.text)
+                            }
+                            Button {
+                                text: "Проверить"
+                                enabled: ctl.buttonCommand !== ""
+                                onClicked: ctl.runButtonCommand()
+                            }
+                        }
+
+                        Label {
+                            text: "Примеры (нажмите, чтобы подставить):"
+                            opacity: 0.7
+                        }
+                        Repeater {
+                            model: [
+                                { cmd: "konsole", hint: "терминал" },
+                                { cmd: "spectacle -r", hint: "снимок области экрана" },
+                                { cmd: "micontrol touchpad toggle", hint: "включить / выключить тачпад" },
+                                { cmd: "micontrol perf silent", hint: "тихий режим" },
+                                { cmd: "xdg-open https://", hint: "открыть сайт" }
+                            ]
+                            delegate: Label {
+                                required property var modelData
+                                text: "<a href=\"#\"><tt>" + modelData.cmd + "</tt></a> — " + modelData.hint
+                                onLinkActivated: buttonCmd.text = modelData.cmd
+                                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                            }
                         }
                         Item { Layout.fillHeight: true }
                     }
