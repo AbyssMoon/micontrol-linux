@@ -93,6 +93,11 @@ fi
 %dir %{_sharedstatedir}/micontrol
 
 %changelog
+* Wed Oct 14 2026 AbyssMoon <7919805+AbyssMoon@users.noreply.github.com> - 0.1.5-1
+- Лимиты мощности режимов определяются на самом ноутбуке
+- Значки в меню разделов
+- Проверено на REDMI Book Pro 16 2025 (TM2409)
+
 * Wed Oct 14 2026 AbyssMoon <7919805+AbyssMoon@users.noreply.github.com> - 0.1.4-1
 - Fn+F4 снова глушит микрофон (и в PipeWire, и индикатор)
 - Микрофон в меню трея

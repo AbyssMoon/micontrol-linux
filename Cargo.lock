@@ -335,14 +335,14 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "micontrol-cli"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "micontrol-core",
 ]
 
 [[package]]
 name = "micontrol-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "libc",
  "serde",
@@ -351,18 +351,19 @@ dependencies = [
 
 [[package]]
 name = "micontrol-gui"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cxx",
  "cxx-qt",
  "cxx-qt-build",
  "cxx-qt-lib",
  "micontrol-core",
+ "serde_json",
 ]
 
 [[package]]
 name = "micontrold"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "micontrol-core",
  "serde",
