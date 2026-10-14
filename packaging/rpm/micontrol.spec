@@ -93,6 +93,11 @@ fi
 %dir %{_sharedstatedir}/micontrol
 
 %changelog
+* Wed Oct 14 2026 AbyssMoon <7919805+AbyssMoon@users.noreply.github.com> - 0.1.4-1
+- Fn+F4 снова глушит микрофон (и в PipeWire, и индикатор)
+- Микрофон в меню трея
+- Fn+F7 запускает команду пользователя
+
 * Wed Oct 14 2026 AbyssMoon <7919805+AbyssMoon@users.noreply.github.com> - 0.1.3-1
 - Fn+K переключает режим производительности (демон ловит WMI-событие)
 - Отключение тачпада: окно, трей, micontrol touchpad toggle
