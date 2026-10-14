@@ -124,6 +124,12 @@ ApplicationWindow {
                 checked: ctl.pl1Sync; enabled: ctl.connected
                 onTriggered: ctl.requestPl1Sync(!ctl.pl1Sync)
             }
+            Platform.MenuItem {
+                text: "Тачпад"; checkable: true
+                visible: ctl.touchpad >= 0
+                checked: ctl.touchpad === 1; enabled: ctl.connected
+                onTriggered: ctl.requestTouchpad(ctl.touchpad !== 1)
+            }
             Platform.MenuSeparator {}
             Platform.MenuItem {
                 text: win.visible ? "Скрыть окно" : "Открыть окно"
@@ -212,6 +218,7 @@ ApplicationWindow {
         { title: "Производительность" },
         { title: "Батарея" },
         { title: "Микрофон" },
+        { title: "Тачпад" },
         { title: "Система" },
         { title: "О программе" }
     ]
@@ -818,6 +825,60 @@ ApplicationWindow {
                             text: ctl.systemMicMuted < 0
                                 ? "PipeWire не найден: переключается только индикатор на клавише."
                                 : "Глушит микрофон в системе и зажигает индикатор на клавише. Fn+F4 — то же с клавиатуры."
+                        }
+                        Item { Layout.fillHeight: true }
+                    }
+
+                    // --- Тачпад ---
+                    ColumnLayout {
+                        spacing: 12
+
+                        Label {
+                            text: "Тачпад"
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+
+                            Switch {
+                                enabled: ctl.connected && ctl.touchpad >= 0
+                                checked: ctl.touchpad === 1
+                                onToggled: {
+                                    const want = checked;
+                                    checked = Qt.binding(() => ctl.touchpad === 1);
+                                    ctl.requestTouchpad(want);
+                                }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 0
+                                Label {
+                                    text: ctl.touchpad < 0 ? "Тачпад не найден"
+                                                           : ctl.touchpad === 1 ? "Включён" : "Выключен"
+                                    font.bold: true
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.Wrap
+                                    opacity: 0.65
+                                    font.pixelSize: 12
+                                    text: "Отключается в ядре, поэтому работает в любом окружении. "
+                                          + "После перезагрузки тачпад снова включён."
+                                }
+                            }
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            wrapMode: Text.Wrap
+                            opacity: 0.7
+                            text: "Fn+Пробел клавиатура передаёт в систему как обычный пробел, поэтому "
+                                  + "сочетание нужно назначить самому. В KDE: Параметры системы → "
+                                  + "Комбинации клавиш → Добавить → Команда, команда "
+                                  + "<tt>micontrol touchpad toggle</tt>."
                         }
                         Item { Layout.fillHeight: true }
                     }

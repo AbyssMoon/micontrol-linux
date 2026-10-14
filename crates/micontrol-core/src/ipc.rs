@@ -28,6 +28,7 @@ pub enum Request {
     Reapply,
     /// Копировать PL1 из DTT в MSR (см. [`crate::power`]).
     SetPl1Sync { enabled: bool },
+    SetTouchpad { enabled: bool },
     /// Произвольный вызов `WMAA` (только если демон запущен с `--debug`).
     Raw { set: bool, func: u8, arg: u8, arg2: u8 },
 }
@@ -59,6 +60,9 @@ pub struct Status {
     /// Потребление пакета CPU за последние ~2 с, ватты.
     #[serde(default)]
     pub cpu_power_w: Option<f64>,
+    /// `None` — тачпад не найден.
+    #[serde(default)]
+    pub touchpad_enabled: Option<bool>,
     pub errors: Vec<String>,
     pub sysinfo: SysInfo,
 }

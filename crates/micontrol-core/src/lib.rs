@@ -8,3 +8,4 @@ pub mod ipc;
 pub mod power;
 pub mod protocol;
 pub mod sysinfo;
+pub mod touchpad;

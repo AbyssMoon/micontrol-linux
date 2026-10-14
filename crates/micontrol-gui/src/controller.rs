@@ -59,6 +59,8 @@ pub mod qobject {
         #[qproperty(QString, battery_status)]
         /// -1 — неизвестно, 0 — от батареи, 1 — от сети.
         #[qproperty(i32, ac_online)]
+        /// -1 — тачпад не найден, 0 — выключен, 1 — включён.
+        #[qproperty(i32, touchpad)]
         #[qproperty(QString, device_info)]
         #[qproperty(bool, is_xiaomi)]
         #[qproperty(bool, redmibook2025)]
@@ -75,6 +77,9 @@ pub mod qobject {
 
         #[qinvokable]
         fn set_mic(self: Pin<&mut Controller>, enabled: bool);
+
+        #[qinvokable]
+        fn request_touchpad(self: Pin<&mut Controller>, enabled: bool);
 
         #[qinvokable]
         fn request_pl1_sync(self: Pin<&mut Controller>, enabled: bool);
@@ -121,6 +126,7 @@ pub struct ControllerRust {
     battery_energy_full: f64,
     battery_status: QString,
     ac_online: i32,
+    touchpad: i32,
     device_info: QString,
     is_xiaomi: bool,
     redmibook2025: bool,
@@ -154,6 +160,7 @@ impl Default for ControllerRust {
             battery_energy_full: -1.0,
             battery_status: QString::default(),
             ac_online: -1,
+            touchpad: -1,
             device_info: QString::default(),
             is_xiaomi: false,
             redmibook2025: false,
@@ -319,6 +326,8 @@ impl qobject::Controller {
         self.as_mut().set_pl1_dtt(s.pl1_dtt_w.map_or(-1, |v| v as i32));
         self.as_mut().set_pl2(s.pl2_w.map_or(-1, |v| v as i32));
         self.as_mut().set_cpu_power(s.cpu_power_w.unwrap_or(-1.0));
+        self.as_mut()
+            .set_touchpad(s.touchpad_enabled.map_or(-1, i32::from));
 
         let i = &s.sysinfo;
         let mut info = format!(
@@ -370,6 +379,10 @@ impl qobject::Controller {
             self.as_mut().set_system_mic_muted(i32::from(!enabled));
         }
         self.apply_action(ipc::request(&Request::SetMic { enabled }));
+    }
+
+    pub fn request_touchpad(self: Pin<&mut Self>, enabled: bool) {
+        self.apply_action(ipc::request(&Request::SetTouchpad { enabled }));
     }
 
     pub fn request_pl1_sync(self: Pin<&mut Self>, enabled: bool) {

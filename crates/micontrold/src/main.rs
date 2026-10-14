@@ -4,7 +4,8 @@
 //! * сохраняет выбранный лимит заряда и режим производительности;
 //! * повторно применяет лимит после загрузки, выхода из сна и смены
 //!   источника питания (как `CPowerPowerChargeProtectGuard` в оригинале);
-//! * переключает режим производительности по Fn+K.
+//! * переключает режим производительности по Fn+K;
+//! * отключает тачпад.
 
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -22,6 +23,7 @@ use micontrol_core::ipc::{Request, Response, Status, DEFAULT_SOCKET};
 use micontrol_core::protocol::{ChargeLimit, Op, PerfMode, EVENT_FN_K};
 use micontrol_core::power;
 use micontrol_core::sysinfo::SysInfo;
+use micontrol_core::touchpad;
 use serde::{Deserialize, Serialize};
 
 const DEFAULT_STATE: &str = "/var/lib/micontrol/state.json";
@@ -123,6 +125,7 @@ impl Daemon {
             pl1_dtt_w: power::dtt_pl1().map(|v| (v / 1_000_000) as u32),
             pl2_w: power::msr_pl2().map(|v| (v / 1_000_000) as u32),
             cpu_power_w: self.cpu_power_w,
+            touchpad_enabled: touchpad::enabled(),
             errors,
             sysinfo: self.sysinfo.clone(),
         }
@@ -172,6 +175,12 @@ impl Daemon {
                 self.saved.pl1_sync = enabled;
                 self.save();
                 self.sync_pl1();
+                Ok(())
+            }
+            Request::SetTouchpad { enabled } => {
+                if let Err(e) = touchpad::set_enabled(enabled) {
+                    return Response::Error { message: format!("тачпад: {e}") };
+                }
                 Ok(())
             }
             Request::Reapply => {

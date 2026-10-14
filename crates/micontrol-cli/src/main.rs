@@ -17,6 +17,7 @@ const USAGE: &str = "\
   mic on|off                     состояние микрофона в прошивке (индикатор mute)
   reapply                        повторно применить лимит заряда
   pl1sync on|off                 копировать лимит мощности режима (DTT) в MSR PL1
+  touchpad on|off|toggle         тачпад; toggle удобно повесить на сочетание клавиш
 
 напрямую через acpi_call (нужен root, демон не нужен):
   probe [--mock]                 прочитать все известные регистры и показать сырые ответы
@@ -74,12 +75,26 @@ fn print_status(s: &Status) {
     if let Some(p) = s.cpu_power_w {
         println!("Мощность CPU:  {p:.1} Вт");
     }
+    if let Some(t) = s.touchpad_enabled {
+        println!("Тачпад:        {}", if t { "вкл" } else { "выкл" });
+    }
     if let Some(h) = s.battery_health {
         println!("Здоровье АКБ:  {h}%");
     }
     for e in &s.errors {
         println!("! {e}");
     }
+}
+
+/// Всплывающее сообщение KDE о тачпаде (как от штатной клавиши); вне KDE — ничего.
+fn touchpad_osd(enabled: bool) {
+    let _ = std::process::Command::new("busctl")
+        .args(["--user", "call", "org.kde.plasmashell", "/org/kde/osdService"])
+        .args(["org.kde.osdService", "touchpadEnabledChanged", "b"])
+        .arg(enabled.to_string())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
 }
 
 fn direct_backend(mock: bool) -> Box<dyn Backend> {
@@ -145,6 +160,22 @@ fn main() {
                 _ => die(USAGE),
             },
         },
+        "touchpad" => {
+            let enabled = match arg(0) {
+                Some("on") => true,
+                Some("off") => false,
+                Some("toggle") => match ipc::request(&Request::Status) {
+                    Ok(s) => !s.touchpad_enabled.unwrap_or_else(|| die("тачпад не найден")),
+                    Err(e) => die(e),
+                },
+                _ => die(USAGE),
+            };
+            match ipc::request(&Request::SetTouchpad { enabled }) {
+                Ok(_) => touchpad_osd(enabled),
+                Err(e) => die(e),
+            }
+            return;
+        }
         "probe" => {
             let mut b = direct_backend(mock);
             println!("бэкенд: {}", b.describe());
