@@ -140,6 +140,9 @@ pub struct ControllerRust {
     button_command: QString,
     /// Счётчик нажатий спецкнопки при прошлом опросе демона.
     button_seen: Option<u64>,
+    /// Состояние микрофона в PipeWire (заглушён) и в прошивке (включён) при прошлом опросе.
+    mic_sys_seen: Option<bool>,
+    mic_fw_seen: Option<bool>,
     device_info: QString,
     is_xiaomi: bool,
     redmibook2025: bool,
@@ -176,6 +179,8 @@ impl Default for ControllerRust {
             touchpad: -1,
             button_command: QString::from(load_button_command().as_str()),
             button_seen: None,
+            mic_sys_seen: None,
+            mic_fw_seen: None,
             device_info: QString::default(),
             is_xiaomi: false,
             redmibook2025: false,
@@ -403,17 +408,34 @@ impl qobject::Controller {
     pub fn refresh(mut self: Pin<&mut Self>) {
         let status = ipc::request(&Request::Status);
 
-        // Fn+F4 на Linux глушит микрофон через PipeWire, а прошивка об этом
-        // не знает — синхронизируем её состояние (и индикатор) с системным.
-        let muted = system_mic_muted();
-        self.as_mut()
-            .set_system_mic_muted(muted.map_or(-1, i32::from));
-        if let (Ok(st), Some(muted)) = (&status, muted) {
-            if st.mic_enabled == Some(muted) {
-                let synced = ipc::request(&Request::SetMic { enabled: !muted });
-                return self.apply(synced);
+        // Микрофон живёт в двух местах: в прошивке (MIUT, индикатор; Fn+F4
+        // переключает его сам) и в PipeWire (mute из KDE и программ). Если они
+        // разошлись, побеждает то, что изменилось с прошлого опроса.
+        let mut muted = system_mic_muted();
+        let mut status = status;
+        if let (Ok(st), Some(sys_muted)) = (&status, muted) {
+            if let Some(fw_on) = st.mic_enabled {
+                let (prev_sys, prev_fw) = {
+                    let r = self.as_ref();
+                    (r.rust().mic_sys_seen, r.rust().mic_fw_seen)
+                };
+                let fw_changed = prev_fw.is_some_and(|p| p != fw_on);
+                let sys_changed = prev_sys != Some(sys_muted);
+                if fw_on == sys_muted {
+                    if fw_changed && !sys_changed {
+                        set_system_mic_muted(!fw_on);
+                        muted = Some(!fw_on);
+                    } else {
+                        status = ipc::request(&Request::SetMic { enabled: !sys_muted });
+                    }
+                }
             }
         }
+        self.as_mut()
+            .set_system_mic_muted(muted.map_or(-1, i32::from));
+        let fw_now = status.as_ref().ok().and_then(|s| s.mic_enabled);
+        self.as_mut().rust_mut().mic_sys_seen = muted;
+        self.as_mut().rust_mut().mic_fw_seen = fw_now;
         self.apply(status);
     }
 
