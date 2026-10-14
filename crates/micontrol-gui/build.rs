@@ -9,6 +9,7 @@ fn main() {
     .qt_module("QuickControls2")
     .qrc_resources([
         "qml/img/special_button.svg",
+        "qml/img/fn_f7.svg",
         "qml/img/mode_silent.svg",
         "qml/img/mode_balance.svg",
         "qml/img/mode_auto.svg",

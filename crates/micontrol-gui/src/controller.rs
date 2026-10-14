@@ -61,8 +61,9 @@ pub mod qobject {
         #[qproperty(i32, ac_online)]
         /// -1 — тачпад не найден, 0 — выключен, 1 — включён.
         #[qproperty(i32, touchpad)]
-        /// Команда для спецкнопки (`sh -c`), пусто — ничего не делать.
+        /// Команды (`sh -c`) для спецкнопки и Fn+F7, пусто — ничего не делать.
         #[qproperty(QString, button_command)]
+        #[qproperty(QString, fn_f7_command)]
         #[qproperty(QString, device_info)]
         #[qproperty(bool, is_xiaomi)]
         #[qproperty(bool, redmibook2025)]
@@ -80,13 +81,13 @@ pub mod qobject {
         #[qinvokable]
         fn set_mic(self: Pin<&mut Controller>, enabled: bool);
 
-        /// Сохранить команду спецкнопки.
+        /// Сохранить команду клавиши: 0 — спецкнопка, 1 — Fn+F7.
         #[qinvokable]
-        fn store_button_command(self: Pin<&mut Controller>, command: &QString);
+        fn store_key_command(self: Pin<&mut Controller>, key: i32, command: &QString);
 
-        /// Запустить команду спецкнопки (проверка из интерфейса).
+        /// Запустить команду клавиши (проверка из интерфейса).
         #[qinvokable]
-        fn run_button_command(self: Pin<&mut Controller>);
+        fn run_key_command(self: Pin<&mut Controller>, key: i32);
 
         #[qinvokable]
         fn request_touchpad(self: Pin<&mut Controller>, enabled: bool);
@@ -138,8 +139,10 @@ pub struct ControllerRust {
     ac_online: i32,
     touchpad: i32,
     button_command: QString,
-    /// Счётчик нажатий спецкнопки при прошлом опросе демона.
+    fn_f7_command: QString,
+    /// Счётчики нажатий спецкнопки и Fn+F7 при прошлом опросе демона.
     button_seen: Option<u64>,
+    fn_f7_seen: Option<u64>,
     /// Состояние микрофона в PipeWire (заглушён) и в прошивке (включён) при прошлом опросе.
     mic_sys_seen: Option<bool>,
     mic_fw_seen: Option<bool>,
@@ -177,8 +180,10 @@ impl Default for ControllerRust {
             battery_status: QString::default(),
             ac_online: -1,
             touchpad: -1,
-            button_command: QString::from(load_button_command().as_str()),
+            button_command: QString::from(load_key_command(0).as_str()),
+            fn_f7_command: QString::from(load_key_command(1).as_str()),
             button_seen: None,
+            fn_f7_seen: None,
             mic_sys_seen: None,
             mic_fw_seen: None,
             device_info: QString::default(),
@@ -207,15 +212,21 @@ fn set_system_mic_muted(muted: bool) {
         .status();
 }
 
-fn button_command_path() -> Option<std::path::PathBuf> {
+/// Файл с командой клавиши: 0 — спецкнопка, 1 — Fn+F7.
+fn key_command_path(key: i32) -> Option<std::path::PathBuf> {
+    let name = match key {
+        0 => "button-command",
+        1 => "fn-f7-command",
+        _ => return None,
+    };
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| std::path::Path::new(&h).join(".config")))?;
-    Some(base.join("micontrol/button-command"))
+    Some(base.join("micontrol").join(name))
 }
 
-fn load_button_command() -> String {
-    button_command_path()
+fn load_key_command(key: i32) -> String {
+    key_command_path(key)
         .and_then(|p| fs::read_to_string(p).ok())
         .map(|s| s.trim().to_string())
         .unwrap_or_default()
@@ -386,11 +397,18 @@ impl qobject::Controller {
         self.as_mut()
             .set_touchpad(s.touchpad_enabled.map_or(-1, i32::from));
         // Первый опрос только запоминает счётчик; перезапуск демона его обнуляет.
-        let seen = self.as_ref().rust().button_seen;
-        if seen.is_some_and(|prev| s.button_presses > prev) {
+        let (button_seen, fn_f7_seen) = {
+            let r = self.as_ref();
+            (r.rust().button_seen, r.rust().fn_f7_seen)
+        };
+        if button_seen.is_some_and(|prev| s.button_presses > prev) {
             spawn_command(&self.as_ref().button_command().to_string());
         }
+        if fn_f7_seen.is_some_and(|prev| s.fn_f7_presses > prev) {
+            spawn_command(&self.as_ref().fn_f7_command().to_string());
+        }
         self.as_mut().rust_mut().button_seen = Some(s.button_presses);
+        self.as_mut().rust_mut().fn_f7_seen = Some(s.fn_f7_presses);
 
         let i = &s.sysinfo;
         let mut info = format!(
@@ -461,19 +479,24 @@ impl qobject::Controller {
         self.apply_action(ipc::request(&Request::SetMic { enabled }));
     }
 
-    pub fn store_button_command(mut self: Pin<&mut Self>, command: &QString) {
+    pub fn store_key_command(mut self: Pin<&mut Self>, key: i32, command: &QString) {
         let text = command.to_string().trim().to_string();
-        if let Some(path) = button_command_path() {
-            if let Some(dir) = path.parent() {
-                let _ = fs::create_dir_all(dir);
-            }
-            let _ = fs::write(path, &text);
+        let Some(path) = key_command_path(key) else { return };
+        if let Some(dir) = path.parent() {
+            let _ = fs::create_dir_all(dir);
         }
-        self.as_mut().set_button_command(QString::from(text.as_str()));
+        let _ = fs::write(path, &text);
+        let text = QString::from(text.as_str());
+        if key == 0 {
+            self.as_mut().set_button_command(text);
+        } else {
+            self.as_mut().set_fn_f7_command(text);
+        }
     }
 
-    pub fn run_button_command(self: Pin<&mut Self>) {
-        spawn_command(&self.button_command().to_string());
+    pub fn run_key_command(self: Pin<&mut Self>, key: i32) {
+        let cmd = if key == 0 { self.button_command() } else { self.fn_f7_command() };
+        spawn_command(&cmd.to_string());
     }
 
     pub fn request_touchpad(self: Pin<&mut Self>, enabled: bool) {

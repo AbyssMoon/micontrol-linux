@@ -66,6 +66,9 @@ pub struct Status {
     /// Сколько раз нажата спецкнопка с запуска демона.
     #[serde(default)]
     pub button_presses: u64,
+    /// То же для Fn+F7.
+    #[serde(default)]
+    pub fn_f7_presses: u64,
     pub errors: Vec<String>,
     pub sysinfo: SysInfo,
 }

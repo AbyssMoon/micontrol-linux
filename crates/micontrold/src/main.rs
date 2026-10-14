@@ -6,7 +6,7 @@
 //!   источника питания (как `CPowerPowerChargeProtectGuard` в оригинале);
 //! * переключает режим производительности по Fn+K;
 //! * отключает тачпад;
-//! * считает нажатия спецкнопки (команду запускает интерфейс).
+//! * считает нажатия спецкнопки и Fn+F7 (команды запускает интерфейс).
 
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -21,7 +21,7 @@ use micontrol_core::acpi_events;
 use micontrol_core::backend::{self, AcpiCall, Backend, Mock};
 use micontrol_core::device::Device;
 use micontrol_core::ipc::{Request, Response, Status, DEFAULT_SOCKET};
-use micontrol_core::protocol::{ChargeLimit, Op, PerfMode, EVENT_FN_K, EVENT_SPECIAL_BUTTON};
+use micontrol_core::protocol::{ChargeLimit, Op, PerfMode, EVENT_FN_F7, EVENT_FN_K, EVENT_SPECIAL_BUTTON};
 use micontrol_core::power;
 use micontrol_core::sysinfo::SysInfo;
 use micontrol_core::touchpad;
@@ -52,6 +52,7 @@ struct Daemon {
     cpu_power_w: Option<f64>,
     /// Счётчик нажатий спецкнопки — команду по нему запускает интерфейс.
     button_presses: u64,
+    fn_f7_presses: u64,
 }
 
 impl Daemon {
@@ -130,6 +131,7 @@ impl Daemon {
             cpu_power_w: self.cpu_power_w,
             touchpad_enabled: touchpad::enabled(),
             button_presses: self.button_presses,
+            fn_f7_presses: self.fn_f7_presses,
             errors,
             sysinfo: self.sysinfo.clone(),
         }
@@ -309,6 +311,7 @@ fn wmi_events(daemon: Arc<Mutex<Daemon>>) {
             match d.device.last_event() {
                 Ok(EVENT_FN_K) => d.cycle_perf_mode(),
                 Ok(EVENT_SPECIAL_BUTTON) => d.button_presses += 1,
+                Ok(EVENT_FN_F7) => d.fn_f7_presses += 1,
                 Ok(id) if d.debug => log(&format!("WMI-событие {id:#04x} ({})", ev.bus_id)),
                 Ok(_) => {}
                 Err(e) if d.debug => log(&format!("номер WMI-события не прочитан: {e}")),
@@ -378,6 +381,7 @@ fn main() {
         debug,
         cpu_power_w: None,
         button_presses: 0,
+        fn_f7_presses: 0,
     };
     log(&format!("бэкенд: {}", daemon.device.describe()));
     if !mock && !daemon.sysinfo.is_xiaomi() {

@@ -55,6 +55,8 @@ pub const BATTERY_HEALTH_SUBCMD: u8 = 0x01;
 pub const EVENT_FN_K: u8 = 0x28;
 /// Спецкнопка в правом верхнем углу: нажатие (`_Q15`); отпускание — 0x26 (`_Q16`).
 pub const EVENT_SPECIAL_BUTTON: u8 = 0x25;
+/// Fn+F7 (клавиша с логотипом Xiaomi): нажатие (`_Q2D`); отпускание — 0x24 (`_Q2E`).
+pub const EVENT_FN_F7: u8 = 0x23;
 
 pub fn build_request(op: Op, cmd: u8, arg: u8, arg2: u8) -> [u8; BUF_LEN] {
     let mut buf = [0u8; BUF_LEN];

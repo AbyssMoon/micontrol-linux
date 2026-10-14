@@ -125,6 +125,12 @@ ApplicationWindow {
                 onTriggered: ctl.requestPl1Sync(!ctl.pl1Sync)
             }
             Platform.MenuItem {
+                text: "Микрофон"; checkable: true
+                visible: ctl.micState >= 0
+                checked: ctl.micState === 1; enabled: ctl.connected
+                onTriggered: ctl.setMic(ctl.micState !== 1)
+            }
+            Platform.MenuItem {
                 text: "Тачпад"; checkable: true
                 visible: ctl.touchpad >= 0
                 checked: ctl.touchpad === 1; enabled: ctl.connected
@@ -182,6 +188,58 @@ ApplicationWindow {
         onTriggered: ctl.refresh()
     }
 
+    // Поле команды, куда подставляются примеры.
+    property var lastKeyField: null
+
+    // Значок клавиши, поле команды, «Сохранить» и «Проверить».
+    component KeyCommand: RowLayout {
+        id: kc
+        required property int key
+        required property string icon
+        required property string title
+        required property string command
+        Layout.fillWidth: true
+        spacing: 12
+
+        Image {
+            source: kc.icon
+            sourceSize: Qt.size(56, 56)
+            Layout.alignment: Qt.AlignTop
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 4
+            Label {
+                text: kc.title
+                font.bold: true
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                TextField {
+                    id: field
+                    Layout.fillWidth: true
+                    placeholderText: "команда, например konsole"
+                    text: kc.command
+                    selectByMouse: true
+                    onActiveFocusChanged: if (activeFocus) win.lastKeyField = field
+                    Component.onCompleted: if (kc.key === 0) win.lastKeyField = field
+                    onAccepted: ctl.storeKeyCommand(kc.key, text)
+                }
+                Button {
+                    text: "Сохранить"
+                    enabled: field.text.trim() !== kc.command
+                    onClicked: ctl.storeKeyCommand(kc.key, field.text)
+                }
+                Button {
+                    text: "Проверить"
+                    enabled: kc.command !== ""
+                    onClicked: ctl.runKeyCommand(kc.key)
+                }
+            }
+        }
+    }
+
     readonly property var modeTitle: ({
         silent: "Тихий", balance: "Баланс", auto: "Авто", turbo: "Турбо", full_speed: "Максимум"
     })
@@ -219,7 +277,7 @@ ApplicationWindow {
         { title: "Батарея" },
         { title: "Микрофон" },
         { title: "Тачпад" },
-        { title: "Спецкнопка" },
+        { title: "Спецкнопки" },
         { title: "Система" },
         { title: "О программе" }
     ]
@@ -884,58 +942,40 @@ ApplicationWindow {
                         Item { Layout.fillHeight: true }
                     }
 
-                    // --- Спецкнопка ---
+                    // --- Спецкнопки ---
                     ColumnLayout {
                         spacing: 12
 
                         Label {
-                            text: "Спецкнопка"
+                            text: "Спецкнопки"
                             font.pixelSize: 16
                             font.bold: true
                         }
-                        RowLayout {
+                        Label {
                             Layout.fillWidth: true
-                            spacing: 12
-
-                            Image {
-                                source: "img/special_button.svg"
-                                sourceSize: Qt.size(56, 56)
-                            }
-                            Label {
-                                Layout.fillWidth: true
-                                wrapMode: Text.Wrap
-                                opacity: 0.7
-                                text: "Кнопка в правом верхнем углу клавиатуры, над Home. Назначьте ей любую "
-                                      + "команду — она запустится при нажатии, пока MI Control работает (значок в трее)."
-                            }
+                            wrapMode: Text.Wrap
+                            opacity: 0.7
+                            text: "Назначьте клавишам любые команды — они запустятся при нажатии, "
+                                  + "пока MI Control работает (значок в трее)."
                         }
 
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-
-                            TextField {
-                                id: buttonCmd
-                                Layout.fillWidth: true
-                                placeholderText: "команда, например konsole"
-                                text: ctl.buttonCommand
-                                selectByMouse: true
-                                onAccepted: ctl.storeButtonCommand(text)
-                            }
-                            Button {
-                                text: "Сохранить"
-                                enabled: buttonCmd.text.trim() !== ctl.buttonCommand
-                                onClicked: ctl.storeButtonCommand(buttonCmd.text)
-                            }
-                            Button {
-                                text: "Проверить"
-                                enabled: ctl.buttonCommand !== ""
-                                onClicked: ctl.runButtonCommand()
-                            }
+                        KeyCommand {
+                            key: 0
+                            icon: "img/special_button.svg"
+                            title: "Кнопка в правом верхнем углу"
+                            command: ctl.buttonCommand
+                        }
+                        KeyCommand {
+                            key: 1
+                            icon: "img/fn_f7.svg"
+                            title: "Fn+F7"
+                            command: ctl.fnF7Command
                         }
 
                         Label {
-                            text: "Примеры (нажмите, чтобы подставить):"
+                            text: "Примеры (нажмите, чтобы подставить в последнее поле, где был курсор):"
+                            Layout.fillWidth: true
+                            wrapMode: Text.Wrap
                             opacity: 0.7
                         }
                         Repeater {
@@ -949,7 +989,7 @@ ApplicationWindow {
                             delegate: Label {
                                 required property var modelData
                                 text: "<a href=\"#\"><tt>" + modelData.cmd + "</tt></a> — " + modelData.hint
-                                onLinkActivated: buttonCmd.text = modelData.cmd
+                                onLinkActivated: if (win.lastKeyField) win.lastKeyField.text = modelData.cmd
                                 HoverHandler { cursorShape: Qt.PointingHandCursor }
                             }
                         }
