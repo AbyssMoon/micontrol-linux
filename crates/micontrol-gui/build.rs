@@ -23,6 +23,20 @@ fn main() {
         "qml/img/tray_unknown.svg",
         "qml/img/mic_on.svg",
         "qml/img/mic_off.svg",
+        "qml/img/nav_perf.svg",
+        "qml/img/nav_perf_on.svg",
+        "qml/img/nav_battery.svg",
+        "qml/img/nav_battery_on.svg",
+        "qml/img/nav_mic.svg",
+        "qml/img/nav_mic_on.svg",
+        "qml/img/nav_touchpad.svg",
+        "qml/img/nav_touchpad_on.svg",
+        "qml/img/nav_keys.svg",
+        "qml/img/nav_keys_on.svg",
+        "qml/img/nav_system.svg",
+        "qml/img/nav_system_on.svg",
+        "qml/img/nav_about.svg",
+        "qml/img/nav_about_on.svg",
     ])
     .files(["src/controller.rs"])
     .build();

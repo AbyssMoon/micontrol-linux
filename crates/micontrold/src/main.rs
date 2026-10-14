@@ -8,6 +8,7 @@
 //! * отключает тачпад;
 //! * считает нажатия спецкнопки и Fn+F7 (команды запускает интерфейс).
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
@@ -20,7 +21,7 @@ use std::time::{Duration, Instant};
 use micontrol_core::acpi_events;
 use micontrol_core::backend::{self, AcpiCall, Backend, Mock};
 use micontrol_core::device::Device;
-use micontrol_core::ipc::{Request, Response, Status, DEFAULT_SOCKET};
+use micontrol_core::ipc::{ModePl1, Request, Response, Status, DEFAULT_SOCKET};
 use micontrol_core::protocol::{ChargeLimit, Op, PerfMode, EVENT_FN_F7, EVENT_FN_K, EVENT_SPECIAL_BUTTON};
 use micontrol_core::power;
 use micontrol_core::sysinfo::SysInfo;
@@ -29,6 +30,10 @@ use serde::{Deserialize, Serialize};
 
 const DEFAULT_STATE: &str = "/var/lib/micontrol/state.json";
 const WATCH_INTERVAL: Duration = Duration::from_secs(2);
+/// После смены режима или питания thermald сдвигает PL1 ступенями
+/// (например, 70 → 45 → 25 Вт), поэтому запоминаем только устоявшееся значение.
+const PL1_SETTLE: Duration = Duration::from_secs(30);
+const PL1_STABLE_TICKS: u32 = 3;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Saved {
@@ -41,6 +46,9 @@ struct Saved {
     /// PL1 MSR от BIOS — для возврата при выключении синхронизации.
     #[serde(default)]
     bios_pl1_uw: Option<u64>,
+    /// PL1, который DTT ставит в каждом режиме, — свой у каждой модели.
+    #[serde(default)]
+    mode_pl1: BTreeMap<String, ModePl1>,
 }
 
 struct Daemon {
@@ -90,6 +98,19 @@ impl Daemon {
         }
     }
 
+    /// Запоминает PL1 режима; на диск пишет, только если значение изменилось.
+    fn learn_mode_pl1(&mut self, mode: PerfMode, ac: bool, watts: u32) {
+        let entry = self.saved.mode_pl1.entry(mode.name().to_string()).or_default();
+        let slot = if ac { &mut entry.ac } else { &mut entry.dc };
+        if *slot == Some(watts) {
+            return;
+        }
+        *slot = Some(watts);
+        let src = if ac { "от сети" } else { "от батареи" };
+        log(&format!("PL1 режима «{}» {src}: {watts} Вт", mode.name()));
+        self.save();
+    }
+
     /// Fn+K: следующий режим по кругу.
     fn cycle_perf_mode(&mut self) {
         let now = match self.device.perf_mode() {
@@ -127,6 +148,8 @@ impl Daemon {
             pl1_sync: self.saved.pl1_sync,
             pl1_msr_w: power::msr_pl1().map(|v| (v / 1_000_000) as u32),
             pl1_dtt_w: power::dtt_pl1().map(|v| (v / 1_000_000) as u32),
+            pl1_bios_w: self.saved.bios_pl1_uw.map(|v| (v / 1_000_000) as u32),
+            mode_pl1: self.saved.mode_pl1.clone(),
             pl2_w: power::msr_pl2().map(|v| (v / 1_000_000) as u32),
             cpu_power_w: self.cpu_power_w,
             touchpad_enabled: touchpad::enabled(),
@@ -249,6 +272,11 @@ fn watcher(daemon: Arc<Mutex<Daemon>>) {
     let mut slept = 0.0;
     let mut ac = ac_online();
     let mut energy = power::package_energy_uj().map(|e| (e, Instant::now()));
+    // Режим и питание, с какого момента они не менялись, и последний PL1 DTT.
+    let mut pl1_key = None;
+    let mut pl1_since = Instant::now();
+    let mut pl1_last = None;
+    let mut pl1_ticks = 0;
     loop {
         thread::sleep(WATCH_INTERVAL);
 
@@ -282,6 +310,22 @@ fn watcher(daemon: Arc<Mutex<Daemon>>) {
         // thermald меняет PL1 в DTT при смене режима и питания.
         if d.saved.pl1_sync {
             d.sync_pl1();
+        }
+
+        // Режим читаем из прошивки: сохранённого может не быть.
+        let mode = d.device.perf_mode().ok().and_then(PerfMode::from_raw);
+        let key = mode.zip(ac);
+        if key != pl1_key || reason.is_some() {
+            pl1_key = key;
+            pl1_since = Instant::now();
+        }
+        let dtt = power::dtt_pl1().map(|v| (v / 1_000_000) as u32);
+        pl1_ticks = if dtt == pl1_last { pl1_ticks + 1 } else { 0 };
+        pl1_last = dtt;
+        if let (Some((mode, ac)), Some(w)) = (key, dtt) {
+            if w > 0 && pl1_ticks >= PL1_STABLE_TICKS && pl1_since.elapsed() >= PL1_SETTLE {
+                d.learn_mode_pl1(mode, ac, w);
+            }
         }
     }
 }

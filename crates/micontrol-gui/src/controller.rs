@@ -43,6 +43,9 @@ pub mod qobject {
         /// PL1 в MSR и в DTT, Вт (-1 — неизвестно).
         #[qproperty(i32, pl1_msr)]
         #[qproperty(i32, pl1_dtt)]
+        #[qproperty(i32, pl1_bios)]
+        /// JSON `{режим: {ac, dc}}` — PL1, который демон запомнил для режимов.
+        #[qproperty(QString, mode_pl1)]
         #[qproperty(i32, pl2)]
         /// Потребление пакета CPU, Вт (-1 — неизвестно).
         #[qproperty(f64, cpu_power)]
@@ -127,6 +130,8 @@ pub struct ControllerRust {
     pl1_sync: bool,
     pl1_msr: i32,
     pl1_dtt: i32,
+    pl1_bios: i32,
+    mode_pl1: QString,
     pl2: i32,
     cpu_power: f64,
     cpu_freq: i32,
@@ -169,6 +174,8 @@ impl Default for ControllerRust {
             pl1_sync: false,
             pl1_msr: -1,
             pl1_dtt: -1,
+            pl1_bios: -1,
+            mode_pl1: QString::from("{}"),
             pl2: -1,
             cpu_power: -1.0,
             cpu_freq: -1,
@@ -392,6 +399,9 @@ impl qobject::Controller {
         self.as_mut().set_pl1_sync(s.pl1_sync);
         self.as_mut().set_pl1_msr(s.pl1_msr_w.map_or(-1, |v| v as i32));
         self.as_mut().set_pl1_dtt(s.pl1_dtt_w.map_or(-1, |v| v as i32));
+        self.as_mut().set_pl1_bios(s.pl1_bios_w.map_or(-1, |v| v as i32));
+        let modes = serde_json::to_string(&s.mode_pl1).unwrap_or_else(|_| "{}".into());
+        self.as_mut().set_mode_pl1(QString::from(modes.as_str()));
         self.as_mut().set_pl2(s.pl2_w.map_or(-1, |v| v as i32));
         self.as_mut().set_cpu_power(s.cpu_power_w.unwrap_or(-1.0));
         self.as_mut()

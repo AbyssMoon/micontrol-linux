@@ -69,6 +69,10 @@ fn print_status(s: &Status) {
         let sync = if s.pl1_sync { "вкл" } else { "выкл" };
         println!("PL1 CPU:       MSR {m} Вт, DTT {d} Вт (синхронизация {sync})");
     }
+    let w = |v: Option<u32>| v.map_or("—".to_string(), |v| v.to_string());
+    for (mode, l) in &s.mode_pl1 {
+        println!("  {mode:<12} сеть {} Вт, батарея {} Вт", w(l.ac), w(l.dc));
+    }
     if let Some(p) = s.pl2_w {
         println!("PL2 CPU:       {p} Вт");
     }

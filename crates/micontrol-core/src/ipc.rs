@@ -1,6 +1,7 @@
 //! Протокол между демоном (root) и клиентами (GUI, CLI):
 //! одна JSON-строка запроса — одна JSON-строка ответа через Unix-сокет.
 
+use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
@@ -54,6 +55,12 @@ pub struct Status {
     pub pl1_msr_w: Option<u32>,
     #[serde(default)]
     pub pl1_dtt_w: Option<u32>,
+    /// PL1 от BIOS — действует вместе с DTT, пока синхронизация выключена.
+    #[serde(default)]
+    pub pl1_bios_w: Option<u32>,
+    /// PL1, который DTT выставлял в каждом режиме (ключ — [`PerfMode::name`]).
+    #[serde(default)]
+    pub mode_pl1: BTreeMap<String, ModePl1>,
     /// Кратковременный лимит PL2, ватты.
     #[serde(default)]
     pub pl2_w: Option<u32>,
@@ -71,6 +78,16 @@ pub struct Status {
     pub fn_f7_presses: u64,
     pub errors: Vec<String>,
     pub sysinfo: SysInfo,
+}
+
+/// PL1 режима от сети и от батареи, ватты. Демон запоминает его, когда режим
+/// поработал какое-то время: на разных моделях таблицы DTT разные.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+pub struct ModePl1 {
+    #[serde(default)]
+    pub ac: Option<u32>,
+    #[serde(default)]
+    pub dc: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

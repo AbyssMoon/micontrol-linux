@@ -254,32 +254,32 @@ ApplicationWindow {
         full_speed: "Вентиляторы на максимум"
     })
 
-    // Замеры на REDMI Book Pro 14 2025 (TM2411, Core Ultra 255H): длительная
-    // нагрузка на все ядра; on/off — с «Полной мощностью» и без.
-    readonly property var powerTable: ({
-        silent:     { on:  { ac: "35–45 Вт · 2,4 ГГц", dc: "17 Вт · 1,8 ГГц" },
-                      off: { ac: "28 Вт · 2,5 ГГц",    dc: "22 Вт · 2,0 ГГц" } },
-        auto:       { on:  { ac: "65 Вт · 3,5 ГГц",    dc: "36 Вт · 2,5 ГГц" },
-                      off: { ac: "28 Вт · 2,5 ГГц",    dc: "28 Вт · 2,3 ГГц" } },
-        turbo:      { on:  { ac: "80 Вт · 3,5 ГГц",    dc: "36 Вт · 2,5 ГГц" },
-                      off: { ac: "28 Вт · 2,5 ГГц",    dc: "28 Вт · 2,4 ГГц" } },
-        full_speed: { on:  { ac: "90 Вт · 3,5 ГГц",    dc: "36 Вт · 2,5 ГГц" },
-                      off: { ac: "28 Вт · 2,5 ГГц",    dc: "28 Вт · 2,3 ГГц" } }
-    })
+    // PL1 режимов запоминает демон: таблицы DTT у моделей разные.
+    readonly property var modePl1: JSON.parse(ctl.modePl1 || "{}")
 
+    // Лимит CPU в режиме: без синхронизации действует меньший из DTT и BIOS.
     function modePower(mode, sync, ac) {
-        const row = ctl.redmibook2025 ? powerTable[mode] : undefined;
-        return row ? row[sync ? "on" : "off"][ac ? "ac" : "dc"] : "";
+        let w = 0;
+        if (mode === ctl.perfMode && ac === (ctl.acOnline !== 0) && ctl.pl1Dtt > 0)
+            w = ctl.pl1Dtt;
+        else if (modePl1[mode])
+            w = modePl1[mode][ac ? "ac" : "dc"] || 0;
+        if (w <= 0)
+            return "";
+        const bios = ctl.pl1Bios > 0 ? ctl.pl1Bios : ctl.pl1Msr;
+        if (!sync && bios > 0)
+            w = Math.min(w, bios);
+        return "до " + w + " Вт";
     }
 
     readonly property var pages: [
-        { title: "Производительность" },
-        { title: "Батарея" },
-        { title: "Микрофон" },
-        { title: "Тачпад" },
-        { title: "Спецкнопки" },
-        { title: "Система" },
-        { title: "О программе" }
+        { title: "Производительность", icon: "perf" },
+        { title: "Батарея", icon: "battery" },
+        { title: "Микрофон", icon: "mic" },
+        { title: "Тачпад", icon: "touchpad" },
+        { title: "Спецкнопки", icon: "keys" },
+        { title: "Система", icon: "system" },
+        { title: "О программе", icon: "about" }
     ]
 
     header: ToolBar {
@@ -346,28 +346,78 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 spacing: 0
 
-                ListView {
-                    id: nav
-                    Layout.preferredWidth: 190
+                // Меню разделов.
+                Rectangle {
+                    Layout.preferredWidth: 232
                     Layout.fillHeight: true
-                    model: win.pages
-                    currentIndex: 0
-                    focus: true
-                    keyNavigationEnabled: true
+                    color: Qt.darker(win.palette.window, 1.04)
 
-                    delegate: ItemDelegate {
-                        required property var modelData
-                        required property int index
-                        width: ListView.view.width
-                        text: modelData.title
-                        highlighted: ListView.isCurrentItem
-                        onClicked: nav.currentIndex = index
+                    ListView {
+                        id: nav
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 2
+                        model: win.pages
+                        currentIndex: 0
+                        focus: true
+                        keyNavigationEnabled: true
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        delegate: ItemDelegate {
+                            id: navItem
+                            required property var modelData
+                            required property int index
+                            readonly property bool current: ListView.isCurrentItem
+                            width: ListView.view.width
+                            height: 42
+                            leftPadding: 12
+                            onClicked: nav.currentIndex = index
+
+                            background: Rectangle {
+                                radius: 8
+                                color: navItem.current ? Qt.rgba(0.18, 0.5, 0.76, 0.14)
+                                     : navItem.hovered ? Qt.rgba(0.5, 0.5, 0.5, 0.12)
+                                     : "transparent"
+                                Behavior on color { ColorAnimation { duration: 120 } }
+
+                                // Полоска у выбранного пункта.
+                                Rectangle {
+                                    visible: navItem.current
+                                    width: 3
+                                    height: 20
+                                    radius: 1.5
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 2
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: "#2f7fc1"
+                                }
+                            }
+
+                            contentItem: RowLayout {
+                                spacing: 12
+                                Image {
+                                    source: "img/nav_" + navItem.modelData.icon + (navItem.current ? "_on" : "") + ".svg"
+                                    sourceSize: Qt.size(20, 20)
+                                    Layout.preferredWidth: 20
+                                    Layout.preferredHeight: 20
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: navItem.modelData.title
+                                    font.pixelSize: 14
+                                    font.weight: navItem.current ? Font.DemiBold : Font.Normal
+                                    color: navItem.current ? "#2f7fc1" : win.palette.windowText
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
                     }
                 }
 
-                ToolSeparator {
-                    orientation: Qt.Vertical
+                Rectangle {
+                    Layout.preferredWidth: 1
                     Layout.fillHeight: true
+                    color: Qt.darker(win.palette.window, 1.15)
                 }
 
                 StackLayout {
@@ -414,18 +464,19 @@ ApplicationWindow {
                                     imageSize: 64
                                     image: "img/mode_" + mode + ".svg"
                                     caption: win.modeTitle[mode]
-                                    subtitle: win.modePower(mode, ctl.pl1Sync, ctl.acOnline !== 0)
+                                    // Пробел держит высоту плитки, пока лимит режима не известен.
+                                    subtitle: win.modePower(mode, ctl.pl1Sync, ctl.acOnline !== 0) || (ctl.pl1Dtt > 0 ? " " : "")
                                     accent: win.modeColor[mode]
                                     checked: ctl.perfMode === mode
                                     enabled: ctl.connected
                                     ToolTip.visible: hovered
                                     ToolTip.delay: 400
                                     ToolTip.text: {
-                                        let t = win.modeHint[mode];
-                                        const ac = win.modePower(mode, ctl.pl1Sync, true);
-                                        if (ac)
-                                            t += "\nОт сети: " + ac + "\nОт батареи: " + win.modePower(mode, ctl.pl1Sync, false);
-                                        return t;
+                                        if (ctl.pl1Dtt <= 0)
+                                            return win.modeHint[mode];
+                                        const ac = win.modePower(mode, ctl.pl1Sync, true) || "ещё не известно";
+                                        const dc = win.modePower(mode, ctl.pl1Sync, false) || "ещё не известно";
+                                        return win.modeHint[mode] + "\nЛимит CPU от сети: " + ac + "\nОт батареи: " + dc;
                                     }
                                     // Не даём кнопке переключиться до ответа демона.
                                     onClicked: {
@@ -528,7 +579,7 @@ ApplicationWindow {
                                     text: ctl.pl1Sync
                                         ? "Режимы работают в полную силу. Выключите, чтобы вернуть лимит BIOS."
                                         : "BIOS ограничивает CPU до " + ctl.pl1Msr + " Вт в любом режиме. "
-                                          + "Включите: от сети до +40% скорости, от батареи около +10% и выше расход."
+                                          + "Включите: от сети CPU заметно быстрее, от батареи — немного быстрее, но и расход выше."
                                 }
                             }
                         }
