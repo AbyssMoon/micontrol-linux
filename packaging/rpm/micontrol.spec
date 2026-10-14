@@ -93,6 +93,13 @@ fi
 %dir %{_sharedstatedir}/micontrol
 
 %changelog
+* Wed Oct 14 2026 AbyssMoon <7919805+AbyssMoon@users.noreply.github.com> - 0.1.3-1
+- Fn+K переключает режим производительности (демон ловит WMI-событие)
+- Отключение тачпада: окно, трей, micontrol touchpad toggle
+- Спецкнопка в правом верхнем углу запускает команду пользователя
+- Трей: подсказка с режимом, CPU и батареей; без уведомления при закрытии окна
+- Интерфейс обновляется сразу по событиям ACPI
+
 * Tue Oct 13 2026 AbyssMoon <7919805+AbyssMoon@users.noreply.github.com> - 0.1.2-1
 - Пакет .deb для Ubuntu / Debian
 - dkms.conf без устаревшего CLEAN
