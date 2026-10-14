@@ -49,6 +49,11 @@ impl Device {
         Ok(())
     }
 
+    /// Номер последнего WMI-события (см. [`crate::protocol::EVENT_FN_K`]).
+    pub fn last_event(&mut self) -> Result<u8> {
+        self.backend.last_event()
+    }
+
     pub fn mic_enabled(&mut self) -> Result<bool> {
         Ok(reply_arg2(&self.backend.exec(Op::Get, Cmd::Mic as u8, MIC_SUBCMD, 0)?)? != 0)
     }

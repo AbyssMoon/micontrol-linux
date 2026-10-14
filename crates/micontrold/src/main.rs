@@ -3,7 +3,8 @@
 //! * выполняет ACPI-вызовы по запросам клиентов через Unix-сокет;
 //! * сохраняет выбранный лимит заряда и режим производительности;
 //! * повторно применяет лимит после загрузки, выхода из сна и смены
-//!   источника питания (как `CPowerPowerChargeProtectGuard` в оригинале).
+//!   источника питания (как `CPowerPowerChargeProtectGuard` в оригинале);
+//! * переключает режим производительности по Fn+K.
 
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -14,10 +15,11 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use micontrol_core::acpi_events;
 use micontrol_core::backend::{self, AcpiCall, Backend, Mock};
 use micontrol_core::device::Device;
 use micontrol_core::ipc::{Request, Response, Status, DEFAULT_SOCKET};
-use micontrol_core::protocol::{ChargeLimit, Op, PerfMode};
+use micontrol_core::protocol::{ChargeLimit, Op, PerfMode, EVENT_FN_K};
 use micontrol_core::power;
 use micontrol_core::sysinfo::SysInfo;
 use serde::{Deserialize, Serialize};
@@ -79,6 +81,23 @@ impl Daemon {
         match power::set_msr_pl1(target) {
             Ok(()) => log(&format!("PL1 MSR: {} → {} Вт", msr / 1_000_000, target / 1_000_000)),
             Err(e) => log(&format!("PL1 MSR не записан: {e}")),
+        }
+    }
+
+    /// Fn+K: следующий режим по кругу.
+    fn cycle_perf_mode(&mut self) {
+        let now = match self.device.perf_mode() {
+            Ok(v) => v,
+            Err(e) => return log(&format!("Fn+K: режим не прочитан: {e}")),
+        };
+        let mode = PerfMode::next_fn_k(now, self.sysinfo.is_redmibook_2025());
+        match self.device.set_perf_mode(mode) {
+            Ok(()) => {
+                self.saved.perf_mode = Some(mode);
+                self.save();
+                log(&format!("Fn+K: режим «{}»", mode.name()));
+            }
+            Err(e) => log(&format!("Fn+K: режим «{}» не включён: {e}", mode.name())),
         }
     }
 
@@ -252,6 +271,39 @@ fn watcher(daemon: Arc<Mutex<Daemon>>) {
     }
 }
 
+/// WMI-события прошивки. Ядро сообщает только факт уведомления, номер
+/// события читается из прошивки; на RedmiBook 2025 Fn+K переключает режим
+/// не сама прошивка, а драйвер (`redmi-wmi` это событие пропускает).
+fn wmi_events(daemon: Arc<Mutex<Daemon>>) {
+    let listener = match acpi_events::Listener::open() {
+        Ok(l) => l,
+        Err(e) => return log(&format!("события ACPI недоступны, Fn+K работать не будет: {e}")),
+    };
+    loop {
+        let events = match listener.next() {
+            Ok(v) => v,
+            Err(e) => {
+                log(&format!("события ACPI: {e}"));
+                thread::sleep(Duration::from_secs(1));
+                continue;
+            }
+        };
+        for ev in events {
+            if ev.device_class != "wmi" || ev.kind != 0x20 {
+                continue;
+            }
+            let mut d = daemon.lock().unwrap();
+            match d.device.last_event() {
+                Ok(EVENT_FN_K) => d.cycle_perf_mode(),
+                Ok(id) if d.debug => log(&format!("WMI-событие {id:#04x} ({})", ev.bus_id)),
+                Ok(_) => {}
+                Err(e) if d.debug => log(&format!("номер WMI-события не прочитан: {e}")),
+                Err(_) => {}
+            }
+        }
+    }
+}
+
 fn serve(stream: UnixStream, daemon: Arc<Mutex<Daemon>>) {
     let Ok(mut writer) = stream.try_clone() else { return };
     for line in BufReader::new(stream).lines() {
@@ -362,6 +414,10 @@ fn main() {
     {
         let d = daemon.clone();
         thread::spawn(move || watcher(d));
+    }
+    if !mock {
+        let d = daemon.clone();
+        thread::spawn(move || wmi_events(d));
     }
 
     let _ = fs::remove_file(&socket);

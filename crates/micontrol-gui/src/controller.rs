@@ -6,6 +6,7 @@ use std::process::Command;
 
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;
+use micontrol_core::acpi_events;
 use micontrol_core::ipc::{self, IpcError, Request, Status};
 use micontrol_core::protocol::{ChargeLimit, PerfMode};
 
@@ -81,6 +82,10 @@ pub mod qobject {
         /// Начать принимать запросы от повторных запусков интерфейса.
         #[qinvokable]
         fn listen_instances(self: Pin<&mut Controller>);
+
+        /// Перечитывать состояние сразу по событиям прошивки (Fn+K, микрофон, питание).
+        #[qinvokable]
+        fn listen_events(self: Pin<&mut Controller>);
 
         /// Повторный запуск попросил показать окно.
         #[qsignal]
@@ -375,6 +380,22 @@ impl qobject::Controller {
         let thread = self.qt_thread();
         crate::single_instance::listen(move || {
             let _ = thread.queue(|ctl| ctl.show_requested());
+        });
+    }
+
+    pub fn listen_events(self: Pin<&mut Self>) {
+        let thread = self.qt_thread();
+        std::thread::spawn(move || {
+            // Без событий интерфейс просто живёт на опросе по таймеру.
+            let Ok(listener) = acpi_events::Listener::open() else { return };
+            while let Ok(events) = listener.next() {
+                let relevant = events
+                    .iter()
+                    .any(|e| e.device_class == "wmi" || e.device_class == "ac_adapter");
+                if relevant && thread.queue(|ctl| ctl.refresh()).is_err() {
+                    break;
+                }
+            }
         });
     }
 }

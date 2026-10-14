@@ -344,6 +344,7 @@ dependencies = [
 name = "micontrol-core"
 version = "0.1.2"
 dependencies = [
+ "libc",
  "serde",
  "serde_json",
 ]

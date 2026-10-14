@@ -53,6 +53,11 @@ pub trait Backend: Send {
     fn call(&mut self, input: &[u8; BUF_LEN]) -> Result<Vec<u8>>;
     fn describe(&self) -> String;
 
+    /// Номер последнего WMI-события прошивки (поле `EVFN` устройства `WMID`).
+    fn last_event(&mut self) -> Result<u8> {
+        Err(Error::Acpi("события прошивки недоступны".into()))
+    }
+
     /// Вызов с проверкой статуса ответа.
     fn exec(&mut self, op: Op, cmd: u8, arg: u8, arg2: u8) -> Result<Vec<u8>> {
         let reply = self.call(&protocol::build_request(op, cmd, arg, arg2))?;
@@ -110,17 +115,16 @@ impl AcpiCall {
         // Аргументы WMAA: instance = 0, method id = 1, входной буфер.
         format!("{method} 0x0 0x1 {{{bytes}}}")
     }
-}
 
-impl Backend for AcpiCall {
-    fn call(&mut self, input: &[u8; BUF_LEN]) -> Result<Vec<u8>> {
+    /// Одна строка в `/proc/acpi/call` и сырой ответ.
+    fn eval(&self, line: &str) -> Result<String> {
         // acpi_call хранит результат последнего вызова глобально, поэтому
         // запись и чтение должны идти из одного места (демон сериализует вызовы).
         let mut f = fs::OpenOptions::new()
             .read(true)
             .write(true)
             .open(ACPI_CALL_PATH)?;
-        f.write_all(Self::format_call(&self.method, input).as_bytes())?;
+        f.write_all(line.as_bytes())?;
         drop(f);
 
         // acpi_call отдаёт результат только целиком: если буфер чтения меньше
@@ -128,7 +132,20 @@ impl Backend for AcpiCall {
         // чтения в 32 байта и получает пустую строку, поэтому читаем одним куском.
         let mut buf = vec![0u8; ACPI_CALL_READ_BUF];
         let n = fs::File::open(ACPI_CALL_PATH)?.read(&mut buf)?;
-        parse_acpi_call_reply(&String::from_utf8_lossy(&buf[..n]))
+        Ok(String::from_utf8_lossy(&buf[..n]).into_owned())
+    }
+}
+
+impl Backend for AcpiCall {
+    fn call(&mut self, input: &[u8; BUF_LEN]) -> Result<Vec<u8>> {
+        parse_acpi_call_reply(&self.eval(&Self::format_call(&self.method, input))?)
+    }
+
+    fn last_event(&mut self) -> Result<u8> {
+        // `QV20` кладёт тип и номер события в поля `EVTP`/`EVFN` рядом с `WMAA`.
+        let dev = self.method.rsplit_once('.').map_or("", |(d, _)| d);
+        let v = parse_acpi_call_int(&self.eval(&format!("{dev}.EVFN"))?)?;
+        u8::try_from(v).map_err(|_| Error::BadReply(format!("EVFN = {v:#x}")))
     }
 
     fn describe(&self) -> String {
@@ -157,6 +174,17 @@ pub fn parse_acpi_call_reply(out: &str) -> Result<Vec<u8>> {
             u8::from_str_radix(t, 16).map_err(|_| Error::BadReply(out.to_string()))
         })
         .collect()
+}
+
+/// Разбирает целое из `/proc/acpi/call` (`0x28`).
+pub fn parse_acpi_call_int(out: &str) -> Result<u64> {
+    let out = out.trim_matches(|c: char| c == '\0' || c.is_whitespace());
+    if out.starts_with("Error") || out == "not called" {
+        return Err(Error::Acpi(out.to_string()));
+    }
+    out.strip_prefix("0x")
+        .and_then(|h| u64::from_str_radix(h, 16).ok())
+        .ok_or_else(|| Error::BadReply(out.to_string()))
 }
 
 /// Ищет ACPI-устройство WMI (`PNP0C14`) с именем `WMID` и возвращает путь к `WMAA`.
@@ -262,6 +290,13 @@ mod tests {
         );
         assert!(parse_acpi_call_reply("0x0").unwrap().is_empty());
         assert!(parse_acpi_call_reply("Error: AE_NOT_FOUND").is_err());
+    }
+
+    #[test]
+    fn parse_int_replies() {
+        assert_eq!(parse_acpi_call_int("0x28\0").unwrap(), 0x28);
+        assert!(parse_acpi_call_int("Error: AE_NOT_FOUND").is_err());
+        assert!(parse_acpi_call_int("{0x01}").is_err());
     }
 
     #[test]

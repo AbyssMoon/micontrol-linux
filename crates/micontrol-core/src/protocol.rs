@@ -50,6 +50,10 @@ pub const CHARGE_SUBCMD: u8 = 0x02;
 /// Подкоманда 0x10/0x01: здоровье батареи в процентах (поле EC `SOH1`).
 pub const BATTERY_HEALTH_SUBCMD: u8 = 0x01;
 
+/// WMI-событие Fn+K на RedmiBook 2025 (`_Q28`). Режим прошивка не меняет —
+/// переключать по кругу должен драйвер (на Windows — программа Xiaomi).
+pub const EVENT_FN_K: u8 = 0x28;
+
 pub fn build_request(op: Op, cmd: u8, arg: u8, arg2: u8) -> [u8; BUF_LEN] {
     let mut buf = [0u8; BUF_LEN];
     buf[1] = op as u8;
@@ -110,6 +114,19 @@ impl PerfMode {
 
     pub fn from_name(s: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|m| m.name() == s)
+    }
+
+    /// Следующий режим по Fn+K; из неизвестного — тихий.
+    pub fn next_fn_k(current: u8, redmibook2025: bool) -> Self {
+        let cycle = if redmibook2025 {
+            [PerfMode::Silent, PerfMode::Auto, PerfMode::Turbo, PerfMode::FullSpeed]
+        } else {
+            [PerfMode::Silent, PerfMode::Balance, PerfMode::Turbo, PerfMode::FullSpeed]
+        };
+        cycle
+            .iter()
+            .position(|m| m.raw() == current)
+            .map_or(cycle[0], |i| cycle[(i + 1) % cycle.len()])
     }
 }
 
@@ -207,6 +224,19 @@ mod tests {
             assert_eq!(ChargeLimit::from_raw(c.raw()), Some(c));
             assert_eq!(ChargeLimit::from_name(c.name()), Some(c));
         }
+    }
+
+    #[test]
+    fn fn_k_cycles_modes() {
+        let mut m = PerfMode::Silent;
+        let mut seen = vec![];
+        for _ in 0..4 {
+            m = PerfMode::next_fn_k(m.raw(), true);
+            seen.push(m);
+        }
+        assert_eq!(seen, [PerfMode::Auto, PerfMode::Turbo, PerfMode::FullSpeed, PerfMode::Silent]);
+        assert_eq!(PerfMode::next_fn_k(0x0A, true), PerfMode::Silent);
+        assert_eq!(PerfMode::next_fn_k(0x01, false), PerfMode::Turbo);
     }
 
     #[test]

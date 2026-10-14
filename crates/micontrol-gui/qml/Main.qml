@@ -24,7 +24,6 @@ ApplicationWindow {
 
     // --- Трей ---
     property bool quitting: false
-    property bool trayHintShown: false
 
     function showWindow() {
         win.show();
@@ -36,28 +35,34 @@ ApplicationWindow {
         if (tray.available && !win.quitting && win.argValue("--screenshot") === "") {
             close.accepted = false;
             win.hide();
-            if (!win.trayHintShown) {
-                win.trayHintShown = true;
-                tray.showMessage("MI Control работает в трее",
-                                 "Правый клик по значку — состояние и быстрые действия.");
-            }
         }
     }
 
-    readonly property string traySummary: {
-        if (!ctl.connected)
-            return "нет связи с демоном";
-        let s = [win.modeTitle[ctl.perfMode] || "режим ?"];
-        if (ctl.batteryCapacity >= 0)
-            s.push(ctl.batteryCapacity + "%");
-        return s.join(" · ");
+    // Строки состояния — в подсказке и в меню трея.
+    readonly property string trayModeLine: ctl.connected ? "Режим: " + (win.modeTitle[ctl.perfMode] || "?")
+                                                         : "Нет связи с демоном"
+    readonly property string trayCpuLine: ctl.cpuTemp < 0 ? "" :
+        "CPU: " + (ctl.cpuPower >= 0 ? ctl.cpuPower.toFixed(1) + " Вт · " : "")
+        + (ctl.cpuFreq > 0 ? (ctl.cpuFreq / 1000).toFixed(1) + " ГГц · " : "")
+        + ctl.cpuTemp + " °C"
+    readonly property string trayBatteryLine: {
+        if (ctl.batteryCapacity < 0)
+            return "";
+        let s = "Батарея: " + ctl.batteryCapacity + "%";
+        const p = ctl.batteryPower;
+        if (Math.abs(p) >= 0.1)
+            s += " · " + (p > 0 ? "+" : "−") + Math.abs(p).toFixed(1) + " Вт";
+        if (ctl.chargeLimit !== "" && ctl.chargeLimit !== "off")
+            s += " · лимит " + ctl.chargeLimit + "%";
+        return s;
     }
 
     Platform.SystemTrayIcon {
         id: tray
         visible: available
         icon.source: Qt.resolvedUrl("img/tray_" + (ctl.connected && ctl.perfMode ? ctl.perfMode : "unknown") + ".svg")
-        tooltip: "MI Control — " + win.traySummary
+        tooltip: ["MI Control", win.trayModeLine, win.trayCpuLine, win.trayBatteryLine]
+                 .filter(l => l !== "").join("\n")
 
         onActivated: reason => {
             if (reason === Platform.SystemTrayIcon.Trigger) {
@@ -71,27 +76,17 @@ ApplicationWindow {
         menu: Platform.Menu {
             Platform.MenuItem {
                 enabled: false
-                text: ctl.connected ? "Режим: " + (win.modeTitle[ctl.perfMode] || "?") : "Нет связи с демоном"
+                text: win.trayModeLine
             }
             Platform.MenuItem {
                 enabled: false
-                visible: ctl.cpuTemp >= 0
-                text: "CPU: " + (ctl.cpuPower >= 0 ? ctl.cpuPower.toFixed(1) + " Вт · " : "")
-                      + (ctl.cpuFreq > 0 ? (ctl.cpuFreq / 1000).toFixed(1) + " ГГц · " : "")
-                      + ctl.cpuTemp + " °C"
+                visible: text !== ""
+                text: win.trayCpuLine
             }
             Platform.MenuItem {
                 enabled: false
-                visible: ctl.batteryCapacity >= 0
-                text: {
-                    let s = "Батарея: " + ctl.batteryCapacity + "%";
-                    const p = ctl.batteryPower;
-                    if (Math.abs(p) >= 0.1)
-                        s += " · " + (p > 0 ? "+" : "−") + Math.abs(p).toFixed(1) + " Вт";
-                    if (ctl.chargeLimit !== "" && ctl.chargeLimit !== "off")
-                        s += " · лимит " + ctl.chargeLimit + "%";
-                    return s;
-                }
+                visible: text !== ""
+                text: win.trayBatteryLine
             }
             Platform.MenuSeparator {}
 
@@ -168,10 +163,12 @@ ApplicationWindow {
         if (!win.visible && !tray.available)
             win.showWindow();
         ctl.listenInstances();
+        ctl.listenEvents();
     }
 
     Timer {
-        // Режим может смениться по Fn+K, а микрофон — по Fn+F4.
+        // Fn+K и питание приходят событиями (listenEvents); микрофон по Fn+F4
+        // глушит PipeWire, а частота, температура и мощность меняются сами.
         interval: win.visible ? 2000 : 5000
         running: true
         repeat: true
