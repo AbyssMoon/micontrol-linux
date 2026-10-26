@@ -7,8 +7,17 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 OUT="$ROOT/build/probe"
 KO="$ROOT/build/acpi_call/acpi_call.ko"
-METHOD='\_SB.PC00.WMID.WMAA'
 [ "$(id -u)" = 0 ] || { echo "нужен root: sudo $0" >&2; exit 1; }
+
+# Путь к WMAA — как в демоне: устройство WMI (PNP0C14) с именем WMID.
+# Корень у платформ разный: PC00 у Intel, PCI0 у AMD и т. п.
+METHOD=""
+for d in /sys/bus/acpi/devices/*; do
+    [ "$(cat "$d/hid" 2>/dev/null)" = PNP0C14 ] || continue
+    p="$(cat "$d/path" 2>/dev/null)"
+    case "$p" in *.WMID) METHOD="$p.WMAA"; break ;; esac
+done
+METHOD="${METHOD:-\_SB.PC00.WMID.WMAA}"
 mkdir -p "$OUT/tables"
 
 LOADED=""
@@ -28,7 +37,8 @@ call() { # op cmd arg arg2
 {
     echo "== $(date -Is) $(uname -r)"
     cat /sys/class/dmi/id/{sys_vendor,product_name,product_sku,bios_version}
-    echo "AC: $(cat /sys/class/power_supply/ADP1/online 2>/dev/null)  BAT: $(cat /sys/class/power_supply/BAT0/{capacity,status} 2>/dev/null | tr '\n' ' ')"
+    echo "WMAA: $METHOD"
+    echo "AC: $(cat /sys/class/power_supply/{ADP*,AC*}/online 2>/dev/null | head -1)  BAT: $(cat /sys/class/power_supply/BAT0/{capacity,status} 2>/dev/null | tr '\n' ' ')"
     echo "wpctl: $(sudo -u "#${SUDO_UID:-0}" XDG_RUNTIME_DIR=/run/user/${SUDO_UID:-0} wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>&1)"
     echo "== известные команды"
     call 0xfa 0x08 0x00 0x00
